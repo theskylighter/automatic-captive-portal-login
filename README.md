@@ -1,195 +1,290 @@
 # Captive Portal Auto-Login
 
-Automatic login to campus network captive portal with multi-platform support.
-
-## 📁 Project Structure
-
-```
-automatic-captive-portal-login-v2/
-├── src/
-│   └── login.py                 # Core login script (shared for all platforms)
-├── windows/
-│   └── autologin.bat            # Windows launcher script
-├── linux/
-│   └── login.sh                 # Linux/macOS launcher script
-├── install/
-│   ├── install.py               # 🎯 Universal installer (Python)
-│   ├── install-windows.bat      # Windows-specific installer
-│   └── install-linux.sh         # Linux/macOS installer
-├── requirements.txt             # Python dependencies
-└── README.md                    # This file
-```
+Automatic login to campus network captive portal with **one-command installation**.
 
 ## 🚀 Quick Start
 
-### Universal Installation (All Platforms)
-```bash
-python3 install/install.py
-```
-
-### Platform-Specific Installation
-
-**Windows:**
-```batch
-install\install-windows.bat
-```
+### One-Command Installation (Most People Use This)
 
 **Linux/macOS:**
 ```bash
-chmod +x install/install-linux.sh
-./install/install-linux.sh
+bash <(curl -fsSL https://raw.githubusercontent.com/theskylighter/automatic-captive-portal-login/main/install.sh)
 ```
 
-## 📋 Pre-Requisites
+**Windows (PowerShell):**
+```powershell
+iex(New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/theskylighter/automatic-captive-portal-login/main/install.cmd')
+```
+
+That's it! The installer will:
+- ✅ Clone the repository
+- ✅ Check Python installation
+- ✅ Install dependencies
+- ✅ Prompt for your credentials
+- ✅ Save configuration securely
+- ✅ Done!
+
+---
+
+<details>
+<summary><b>📁 Project Structure</b></summary>
+
+```
+automatic-captive-portal-login/
+├── install.sh                   # One-command bootstrap (Linux/macOS)
+├── install.cmd                  # One-command bootstrap (Windows)
+│
+├── src/
+│   ├── login.py                 # Core login script
+│   └── config.py                # Configuration manager
+├── windows/
+│   └── autologin.bat            # Windows launcher
+├── linux/
+│   └── login.sh                 # Linux/macOS launcher
+├── install/
+│   └── install.py               # Universal Python installer
+├── requirements.txt             # Python dependencies
+└── README.md                    # Documentation
+```
+
+</details>
+
+---
+
+<details>
+<summary><b>📋 Pre-Requisites</b></summary>
 
 - Python 3.6 or higher
 - pip (Python package manager)
 - Internet connection
+- Git (for cloning, but optional if downloading manually)
+
+</details>
+
+---
+
+<details>
+<summary><b>� No curl/PowerShell? Download & Run Locally</b></summary>
+
+After downloading the repository, run from project root:
+
+**Linux/macOS:**
+```bash
+bash install.sh
+```
+
+**Windows:**
+```cmd
+install.cmd
+```
+
+</details>
+
+---
 
 ## ⚙️ Setup Instructions
 
-1. **Clone or download the repository**
+The installer will automatically:
+- ✅ Check Python installation
+- ✅ Install dependencies
+- ✅ Ask for your credentials
+- ✅ Save everything to `.env` (protected file)
+- ✅ All done!
 
-2. **Run the installer for your platform** (see Quick Start above)
-   - **Windows:** `install\install-windows.bat`
-   - **Linux/macOS:** `./install/install-linux.sh`
-   - **Universal:** `python3 install/install.py` (recommended)
-   
-   The installer will:
-   - ✅ Check Python installation
-   - ✅ Install Python dependencies
-   - ✅ Prompt you for your credentials
-   - ✅ Save credentials securely in `.env` file
-   - ✅ Add `.env` to `.gitignore` (so credentials aren't committed)
+**Test the script:**
 
-3. **Test the script**
-   - **Windows:** Double-click `windows\autologin.bat` or run it from command prompt
-   - **Linux/macOS:** Run `./linux/login.sh` from terminal
-
-## 🔐 Credential Management
-
-Your credentials are stored in a `.env` file created during installation. This file:
-- Is automatically added to `.gitignore` to prevent accidental commits
-- Contains your USERNAME and PASSWORD for the captive portal
-- Is restricted to owner-only permissions on Linux/macOS (mode 600)
-
-### Alternative: Environment Variables
-Instead of using the `.env` file, you can set environment variables directly:
-
-**Windows (Command Prompt):**
-```batch
-set CAPTIVE_PORTAL_USERNAME=your_username
-set CAPTIVE_PORTAL_PASSWORD=your_password
+**Windows:** 
+```bash
+windows\autologin.bat
 ```
 
-**Linux/macOS (add to ~/.bashrc or ~/.zshrc):**
+**Linux/macOS:** 
+```bash
+./linux/login.sh
+```
+
+---
+
+<details>
+<summary><b>🔐 Credential Management & Security</b></summary>
+
+### Where are my credentials stored?
+
+Your credentials are saved in a `.env` file:
+- ✅ Automatically added to `.gitignore` (can't be accidentally committed)
+- ✅ Restricted to owner-only permissions on Linux/macOS (mode 600)
+- ✅ Contains: `CAPTIVE_PORTAL_USERNAME` and `CAPTIVE_PORTAL_PASSWORD`
+
+### How to update credentials?
+
+**Option 1: Re-run installer**
+```bash
+python3 install/install.py    # or install.sh / install.cmd
+```
+
+**Option 2: Edit .env file directly**
+```
+CAPTIVE_PORTAL_USERNAME="new_username"
+CAPTIVE_PORTAL_PASSWORD="new_password"
+```
+
+**Option 3: Environment variables (advanced)**
 ```bash
 export CAPTIVE_PORTAL_USERNAME="your_username"
 export CAPTIVE_PORTAL_PASSWORD="your_password"
 ```
 
-### Updating Credentials
-To update your credentials:
-1. Edit the `.env` file, or
-2. Re-run the installer, or
-3. Set the environment variables again
+### Is my password secure?
 
-## 🔄 Periodic Automation
+The `.env` file is protected by:
+- `.gitignore` entry (won't commit to GitHub)
+- File permissions (600 on Unix = owner-only)
+- Not hardcoded in source code
 
-### Windows (Task Scheduler)
-1. Press `Win + S` and search for "Task Scheduler"
-2. Click "Create Task" in the right panel
+**⚠️ Note:** This is suitable for campus/institutional networks with non-critical credentials. For sensitive passwords, use environment variables instead.
+
+</details>
+
+---
+
+<details>
+<summary><b>⏰ Set Up Automation (12:00 AM Daily)</b></summary>
+
+### Windows - Task Scheduler
+
+1. Press `Win + S` → search "Task Scheduler" → Open
+2. Right-click → **Create Task**
 3. **General tab:**
    - Name: "Campus Network Auto-Login"
-   - Check "Run whether user is logged on or not"
+   - ☑️ "Run whether user is logged on or not"
 4. **Triggers tab:**
-   - Click "New"
-   - Set to "Daily" at your preferred time (e.g., 12:00 AM)
+   - Click **New** → Daily → 12:00 AM → OK
 5. **Actions tab:**
-   - Click "New"
-   - Action: "Start a program"
-   - Program: `windows\autologin.bat`
-6. Click OK and enter your password if prompted
+   - Click **New** → Action: "Start a program"
+   - Program/script: `windows\autologin.bat`
+   - OK
+6. Enter password, done!
 
-### Linux/macOS (Crontab)
-1. Open crontab editor: `crontab -e`
-2. Add a line to run the script periodically:
-   ```bash
-   # Run daily at 12:00 AM
-   0 0 * * * /path/to/project/linux/login.sh >> /path/to/project/log/auto-login.log 2>&1
-   ```
-3. Replace `/path/to/project` with the actual path to your project directory
+### Linux/macOS - Crontab
 
-## 📝 How It Works
+```bash
+crontab -e
+```
 
-- The script continuously monitors network connectivity
-- When a captive portal is detected, it automatically sends login credentials
-- Upon successful login, the script exits
-- If login fails, it retries after 5 seconds (up to 15 minutes timeout)
+Add this line:
+```bash
+0 0 * * * /path/to/project/linux/login.sh >> /path/to/project/log/auto-login.log 2>&1
+```
 
-## 🐛 Troubleshooting
+Replace `/path/to/project` with your actual project path.
+
+**What it does:** Runs daily at 12:00 AM (midnight)
+
+</details>
+
+---
+
+<details>
+<summary><b>📝 How It Works</b></summary>
+
+The script:
+1. Continuously monitors network connectivity (checks every 1 second)
+2. Detects when a captive portal appears
+3. Automatically sends your login credentials
+4. On success: Script exits ✅
+5. On failure: Retries every 5 seconds (up to 15 minutes)
+
+### Configuration
+
+All settings are in `src/login.py`:
+- `LOGIN_URL` - Captive portal URL
+- `TIMEOUT_SECONDS` - Max wait time (default: 900 = 15 min)
+- `HEADERS` - HTTP headers for request
+- Credentials loaded from `.env` or environment variables
+
+</details>
+
+---
+
+<details>
+<summary><b>🐛 Troubleshooting</b></summary>
 
 ### Credentials not configured
-If you see: `❌ Error: Credentials not configured!`
-- Run the installer: `python3 install/install.py`
-- Or manually create a `.env` file with:
-  ```
-  CAPTIVE_PORTAL_USERNAME="your_username"
-  CAPTIVE_PORTAL_PASSWORD="your_password"
-  ```
+**Error:** `❌ Error: Credentials not configured!`
+
+**Fix:**
+```bash
+python3 install/install.py    # Re-run installer
+# OR manually create .env file with credentials
+```
 
 ### Python not found
-- **Windows:** Make sure Python is installed and added to PATH
-  - Check: Open Command Prompt and run `python --version`
-- **Linux/macOS:** Use `python3` instead of `python`
+**Windows:** 
+- Open Command Prompt → `python --version`
+- If not found: [Install Python](https://www.python.org)
+
+**Linux/macOS:**
+- Use `python3` instead of `python`
 
 ### "requests" module not found
-- Run: `pip install -r requirements.txt`
-- Or manually: `pip install requests`
+```bash
+pip install -r requirements.txt
+```
 
 ### Connection errors
-- Verify the captive portal URL is correct in `src/login.py` (LOGIN_URL variable)
-- Check your credentials are correct in the `.env` file
+- Check `LOGIN_URL` in `src/login.py` is correct
+- Verify credentials in `.env` are correct
+- Test network connection manually
 
 ### Script doesn't run on schedule
-- **Windows:** Check Task Scheduler logs for errors
-- **Linux:** Check cron logs with `grep CRON /var/log/syslog`
+**Windows:** Check Task Scheduler → View Results
+**Linux:** `grep CRON /var/log/syslog`
 
-## 📚 FAQ
+</details>
 
-### How do I update my credentials?
-Run the installer again:
-- `python3 install/install.py` (universal)
-- `install\install-windows.bat` (Windows)
-- `./install/install-linux.sh` (Linux/macOS)
+---
 
-Or manually edit the `.env` file in the project root.
+<details>
+<summary><b>❓ FAQ</b></summary>
 
-### How do I find my Python path?
+**Q: How do I uninstall?**
+A: Just delete the project folder. The script isn't installed system-wide.
+
+**Q: Can I modify the code?**
+A: Yes! It's open source. Edit:
+- `Login URL` → change `LOGIN_URL` variable
+- `Credentials behavior` → edit `login_to_network()` function
+- `Timeout` → change `TIMEOUT_SECONDS`
+
+**Q: Will this work with my campus network?**
+A: If your campus uses an HTTP captive portal (like Sophos), yes. Some proprietary portals may need URL adjustment in `src/login.py`.
+
+**Q: What if I have multiple campuses?**
+A: Edit `LOGIN_URL` and `PAYLOAD` in `src/login.py` for each network, or run installer again with different credentials.
+
+**Q: Does this work on macOS?**
+A: Yes! Use `install.sh` or Linux/macOS installers. Everything is the same.
+
+**Q: How do I find my Python executable path?**
 ```bash
 python -c "import sys; print(sys.executable)"
 ```
 
-### Can I edit the code?
-Yes! The code is open source. Feel free to modify:
-- `LOGIN_URL` - Change the captive portal URL
-- `HEADERS` - Update HTTP headers if needed
-- `TIMEOUT_SECONDS` - Adjust the maximum wait time
+</details>
 
-### Is my password secure?
-The password is stored in a `.env` file in plain text, which is suitable for institutional/campus networks with non-critical credentials. The `.env` file:
-- Is automatically added to `.gitignore` to prevent accidental commits
-- Has restricted permissions (600) on Linux/macOS
-- Should **never be committed** to version control
+---
 
-**For sensitive passwords:** Use environment variables instead (see Credential Management section).
+<details>
+<summary><b>📄 License & Contributing</b></summary>
 
-## 📄 License
+This project is open source. Feel free to:
+- ✅ Fork and modify
+- ✅ Submit pull requests
+- ✅ Report issues
+- ✅ Share improvements
 
-Check the repository for license information.
+See GitHub repository for license details.
 
-## 🤝 Contributing
-
-Feel free to fork, modify, and improve the project!
+</details>
 
 

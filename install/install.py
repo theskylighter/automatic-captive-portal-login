@@ -133,7 +133,7 @@ def setup_cron_on_linux():
     response = input("\nWould you like to set up a cron job? (y/n): ").strip().lower()
     if response in ["y", "yes"]:
         project_path = os.path.abspath(".")
-        cron_command = f"0 7 * * * {project_path}/linux/login.sh >> {project_path}/log/auto-login.log 2>&1"
+        cron_command = f"0 0 * * * {project_path}/linux/login.sh >> {project_path}/log/auto-login.log 2>&1"
         print(f"\nAdd this line to your crontab (crontab -e):\n{cron_command}")
 
 def setup_task_scheduler_on_windows():

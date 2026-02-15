@@ -65,7 +65,7 @@ echo 🔧 Running setup...
 echo.
 
 REM Run the main installer
-python install\install.py
+python3 install\install.py
 
 if errorlevel 1 (
     echo.

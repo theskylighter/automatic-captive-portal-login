@@ -1,7 +1,20 @@
+#!/usr/bin/env python3
 import requests
 import time
 import subprocess
 import sys
+import shutil
+import socket
+import logging
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
 
 # Replace with your actual credentials
 USERNAME = "2023uai1819"
@@ -35,42 +48,65 @@ PAYLOAD = {
 }
 
 def is_network_down():
-    """Check if the network is down by pinging Google DNS (8.8.8.8)."""
+    """Check if the network is down by attempting to reach a non-redirecting URL."""
     try:
-        result = subprocess.run(["ping", "-n", "1", "8.8.8.8"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        return result.returncode != 0  # If return code is non-zero, network is down
+        # We use a 204 generator which is standard for connectivity checks
+        # If it's redirected or fails, network is "down" (captive portal active)
+        response = requests.get("http://connectivitycheck.gstatic.com/generate_204", timeout=3, allow_redirects=False)
+        return response.status_code != 204
     except Exception as e:
-        print(f"⚠️ Error checking network: {e}")
-        return True  # Assume network is down if there's an error
+        logging.debug(f"Connectivity check failed: {e}")
+        return True  # Assume network is down if we can't even make the request
 
 def login_to_network():
     """Send a login request to the captive portal."""
     try:
         response = requests.post(LOGIN_URL, headers=HEADERS, data=PAYLOAD)
         if response.status_code == 200:
-            print("✅ Successfully logged in! Exiting script.")
+            logging.info("✅ Successfully logged in! Exiting script.")
+            # Save response to find logout info
+            with open("/home/shivam/scripts/last_login_response.html", "w") as f:
+                f.write(response.text)
             return True  # Login successful
         else:
-            print(f"⚠️ Login failed with status code: {response.status_code}")
+            logging.warning(f"⚠️ Login failed with status code: {response.status_code}")
     except Exception as e:
-        print(f"❌ Error while sending login request: {e}")
+        logging.error(f"❌ Error while sending login request: {e}")
     
     return False  # Login failed
 
 def main():
     """Keep checking network status and login when needed."""
-    print("🌐 Monitoring network status...")
+    logging.info("🌐 Monitoring network status...")
+    
+    # Set timeout of 15 minutes (900 seconds)
+    TIMEOUT_SECONDS = 15 * 60  # 900 seconds
+    start_time = time.time()
+    last_status_was_down = False
 
     while True:
+        elapsed_time = time.time() - start_time
+        
+        # Check if timeout exceeded
+        if elapsed_time > TIMEOUT_SECONDS:
+            logging.info(f"⏰ Timeout reached! ({TIMEOUT_SECONDS // 60} minutes elapsed). Exiting.")
+            sys.exit(1)  # Exit with error code
+        
         if is_network_down():
-            print("🚫 Network down. Trying to log in...")
+            remaining_secs = int(TIMEOUT_SECONDS - elapsed_time)
+            remaining_mins = remaining_secs // 60
+            remaining_secs = remaining_secs % 60
+            logging.warning(f"🚫 Network down. Trying to log in... ({remaining_mins}m {remaining_secs}s remaining)")
             if login_to_network():
                 sys.exit()  # Exit script once login is successful
             else:
-                print("❌ Login attempt failed. Retrying in 5 seconds...")
+                logging.error("❌ Login attempt failed. Retrying in 5 seconds...")
                 time.sleep(5)
+            last_status_was_down = True
         else:
-            print("✅ Network is still up, rechecking in 1 second...")
+            if last_status_was_down:
+                logging.info("✅ Network restored.")
+                last_status_was_down = False
             time.sleep(1)
 
 if __name__ == "__main__":

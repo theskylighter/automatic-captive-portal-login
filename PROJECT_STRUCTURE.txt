@@ -1,0 +1,19 @@
+project/
+├── src/
+│   ├── __init__.py              # (optional) For package structure
+│   └── login.py                 # Core login script
+│
+├── windows/
+│   └── autologin.bat            # Windows batch launcher
+│
+├── linux/
+│   └── login.sh                 # Shell script launcher
+│
+├── install/
+│   ├── install.py               # Universal Python installer
+│   ├── install-windows.bat      # Windows installer
+│   └── install-linux.sh         # Linux/macOS installer
+│
+├── .gitignore                   # Git ignore file
+├── requirements.txt             # Python dependencies
+└── README.md                    # Documentation

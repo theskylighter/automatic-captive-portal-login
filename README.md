@@ -51,19 +51,48 @@ chmod +x install/install-linux.sh
 1. **Clone or download the repository**
 
 2. **Run the installer for your platform** (see Quick Start above)
-   - This will install required Python dependencies automatically
+   - **Windows:** `install\install-windows.bat`
+   - **Linux/macOS:** `./install/install-linux.sh`
+   - **Universal:** `python3 install/install.py` (recommended)
+   
+   The installer will:
+   - ✅ Check Python installation
+   - ✅ Install Python dependencies
+   - ✅ Prompt you for your credentials
+   - ✅ Save credentials securely in `.env` file
+   - ✅ Add `.env` to `.gitignore` (so credentials aren't committed)
 
-3. **Configure your credentials**
-   - Open `src/login.py` in a text editor
-   - Replace the placeholder credentials:
-     ```python
-     USERNAME = "your_username"
-     PASSWORD = "your_password"
-     ```
-
-4. **Test the script**
+3. **Test the script**
    - **Windows:** Double-click `windows\autologin.bat` or run it from command prompt
    - **Linux/macOS:** Run `./linux/login.sh` from terminal
+
+## 🔐 Credential Management
+
+Your credentials are stored in a `.env` file created during installation. This file:
+- Is automatically added to `.gitignore` to prevent accidental commits
+- Contains your USERNAME and PASSWORD for the captive portal
+- Is restricted to owner-only permissions on Linux/macOS (mode 600)
+
+### Alternative: Environment Variables
+Instead of using the `.env` file, you can set environment variables directly:
+
+**Windows (Command Prompt):**
+```batch
+set CAPTIVE_PORTAL_USERNAME=your_username
+set CAPTIVE_PORTAL_PASSWORD=your_password
+```
+
+**Linux/macOS (add to ~/.bashrc or ~/.zshrc):**
+```bash
+export CAPTIVE_PORTAL_USERNAME="your_username"
+export CAPTIVE_PORTAL_PASSWORD="your_password"
+```
+
+### Updating Credentials
+To update your credentials:
+1. Edit the `.env` file, or
+2. Re-run the installer, or
+3. Set the environment variables again
 
 ## 🔄 Periodic Automation
 
@@ -100,6 +129,15 @@ chmod +x install/install-linux.sh
 
 ## 🐛 Troubleshooting
 
+### Credentials not configured
+If you see: `❌ Error: Credentials not configured!`
+- Run the installer: `python3 install/install.py`
+- Or manually create a `.env` file with:
+  ```
+  CAPTIVE_PORTAL_USERNAME="your_username"
+  CAPTIVE_PORTAL_PASSWORD="your_password"
+  ```
+
 ### Python not found
 - **Windows:** Make sure Python is installed and added to PATH
   - Check: Open Command Prompt and run `python --version`
@@ -111,13 +149,21 @@ chmod +x install/install-linux.sh
 
 ### Connection errors
 - Verify the captive portal URL is correct in `src/login.py` (LOGIN_URL variable)
-- Check your credentials are correct
+- Check your credentials are correct in the `.env` file
 
 ### Script doesn't run on schedule
 - **Windows:** Check Task Scheduler logs for errors
 - **Linux:** Check cron logs with `grep CRON /var/log/syslog`
 
 ## 📚 FAQ
+
+### How do I update my credentials?
+Run the installer again:
+- `python3 install/install.py` (universal)
+- `install\install-windows.bat` (Windows)
+- `./install/install-linux.sh` (Linux/macOS)
+
+Or manually edit the `.env` file in the project root.
 
 ### How do I find my Python path?
 ```bash
@@ -131,9 +177,12 @@ Yes! The code is open source. Feel free to modify:
 - `TIMEOUT_SECONDS` - Adjust the maximum wait time
 
 ### Is my password secure?
-**No!** The password is stored in plain text in `src/login.py`. This is only suitable for institutional/campus networks with non-critical credentials.
+The password is stored in a `.env` file in plain text, which is suitable for institutional/campus networks with non-critical credentials. The `.env` file:
+- Is automatically added to `.gitignore` to prevent accidental commits
+- Has restricted permissions (600) on Linux/macOS
+- Should **never be committed** to version control
 
-**For sensitive passwords:** Consider using environment variables or a config file with restricted permissions.
+**For sensitive passwords:** Use environment variables instead (see Credential Management section).
 
 ## 📄 License
 

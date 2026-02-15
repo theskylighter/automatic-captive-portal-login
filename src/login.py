@@ -6,6 +6,15 @@ import sys
 import shutil
 import socket
 import logging
+import os
+from pathlib import Path
+
+# Import config manager
+try:
+    from config import load_config
+    use_config_manager = True
+except ImportError:
+    use_config_manager = False
 
 # Configure logging
 logging.basicConfig(
@@ -16,9 +25,52 @@ logging.basicConfig(
     ]
 )
 
-# Replace with your actual credentials
-USERNAME = "2023uai1819"
-PASSWORD = "0000000000"
+def load_credentials():
+    """Load credentials from environment variables, config manager, or .env file"""
+    global use_config_manager
+    
+    if use_config_manager:
+        try:
+            config = load_config()
+            return config.get_credentials()
+        except Exception as e:
+            logging.warning(f"Config manager error: {e}")
+            use_config_manager = False
+    
+    # Fallback: Try environment variables and .env file directly
+    # Try environment variables first
+    username = os.getenv('CAPTIVE_PORTAL_USERNAME')
+    password = os.getenv('CAPTIVE_PORTAL_PASSWORD')
+    
+    if username and password:
+        return username, password
+    
+    # Try .env file in project root
+    env_file = Path(__file__).parent.parent / '.env'
+    if env_file.exists():
+        try:
+            with open(env_file, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if line.startswith('CAPTIVE_PORTAL_USERNAME='):
+                        username = line.split('=', 1)[1].strip("'\"")
+                    elif line.startswith('CAPTIVE_PORTAL_PASSWORD='):
+                        password = line.split('=', 1)[1].strip("'\"")
+        except Exception as e:
+            logging.warning(f"Could not read .env file: {e}")
+    
+    if not username or not password:
+        logging.error("❌ Credentials not found!")
+        logging.error("Please set environment variables:")
+        logging.error("  - CAPTIVE_PORTAL_USERNAME")
+        logging.error("  - CAPTIVE_PORTAL_PASSWORD")
+        logging.error("Or run the installer: python install.py")
+        sys.exit(1)
+    
+    return username, password
+
+# Load credentials
+USERNAME, PASSWORD = load_credentials()
 
 # Captive portal login URL
 LOGIN_URL = "http://172.16.1.3:8002/index.php?zone=lan"

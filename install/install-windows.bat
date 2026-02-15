@@ -34,17 +34,41 @@ if errorlevel 1 (
 
 echo ✅ Dependencies installed
 
-REM Create Task Scheduler entry
+REM Get credentials
 echo.
-echo Setting up Task Scheduler entry...
-echo Note: You may need to run this installer as Administrator for Task Scheduler setup
-REM TODO: Add Task Scheduler setup command here
+echo ======================================
+echo Configure Credentials
+echo ======================================
+echo.
+set /p USERNAME="Enter your campus network username: "
+set /p PASSWORD="Enter your campus network password: "
+
+REM Create .env file
+echo # Captive Portal Credentials > .env
+echo # DO NOT COMMIT THIS FILE TO VERSION CONTROL >> .env
+echo. >> .env
+echo CAPTIVE_PORTAL_USERNAME="%USERNAME%" >> .env
+echo CAPTIVE_PORTAL_PASSWORD="%PASSWORD%" >> .env
+
+echo ✅ Credentials saved to .env file
+
+REM Add to .gitignore if not present
+findstr /M "\.env" .gitignore >nul 2>&1
+if errorlevel 1 (
+    echo. >> .gitignore
+    echo # Environment variables >> .gitignore
+    echo .env >> .gitignore
+    echo ✅ Added .env to .gitignore
+)
 
 echo.
 echo ✅ Installation complete!
 echo.
-echo Next steps:
-echo 1. Edit src\login.py and update USERNAME and PASSWORD with your credentials
-echo 2. Run windows\autologin.bat to test the script
+echo You can now run: windows\autologin.bat
+echo.
+echo To set up Task Scheduler:
+echo 1. Press Win+S and search for 'Task Scheduler'
+echo 2. Create a new task to run windows\autologin.bat periodically
 echo.
 pause
+

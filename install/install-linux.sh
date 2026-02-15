@@ -38,21 +38,63 @@ echo ""
 echo "Making scripts executable..."
 chmod +x linux/login.sh
 
+# Get credentials
+echo ""
+echo "======================================"
+echo "Configure Credentials"
+echo "======================================"
+echo ""
+
+read -p "Enter your campus network username: " USERNAME
+read -sp "Enter your campus network password: " PASSWORD
+echo ""
+
+# Create .env file
+cat > .env << EOF
+# Captive Portal Credentials
+# DO NOT COMMIT THIS FILE TO VERSION CONTROL
+
+CAPTIVE_PORTAL_USERNAME="$USERNAME"
+CAPTIVE_PORTAL_PASSWORD="$PASSWORD"
+EOF
+
+# Restrict permissions on .env file
+chmod 600 .env
+
+echo "✅ Credentials saved to .env file"
+
+# Add to .gitignore if not present
+if ! grep -q "\.env" .gitignore; then
+    echo "" >> .gitignore
+    echo "# Environment variables" >> .gitignore
+    echo ".env" >> .gitignore
+    echo "✅ Added .env to .gitignore"
+fi
+
 # Optional: Set up cron job
 echo ""
-echo "Would you like to set up a cron job to run this automatically? (y/n)"
-read -r response
+echo "======================================"
+echo "Optional: Cron Job Setup"
+echo "======================================"
+read -p "Would you like to set up a cron job? (y/n): " response
 
 if [[ "$response" == "y" || "$response" == "Y" ]]; then
-    echo "Edit your crontab with: crontab -e"
-    echo "Example: Add this line to run daily at 12:00 AM"
-    echo "0 0 * * * /path/to/project/linux/login.sh >> /path/to/project/log/auto-login.log 2>&1"
+    PROJECT_PATH="$(pwd)"
+    CRON_COMMAND="0 7 * * * $PROJECT_PATH/linux/login.sh >> $PROJECT_PATH/log/auto-login.log 2>&1"
+    
+    echo ""
+    echo "Add this line to your crontab (crontab -e):"
+    echo "$CRON_COMMAND"
+    echo ""
+    echo "This will run the script daily at 7:00 AM"
+    echo "To edit crontab: crontab -e"
 fi
 
 echo ""
-echo "✅ Installation complete!"
+echo "======================================"
+echo "✅ Installation Complete!"
+echo "======================================"
 echo ""
-echo "Next steps:"
-echo "1. Edit src/login.py and update USERNAME and PASSWORD with your credentials"
-echo "2. Run linux/login.sh to test the script"
+echo "You can now run the script with:"
+echo "  ./linux/login.sh"
 echo ""

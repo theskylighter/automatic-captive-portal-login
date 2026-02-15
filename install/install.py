@@ -9,6 +9,7 @@ import sys
 import platform
 import subprocess
 from pathlib import Path
+import re
 
 def print_header():
     print("\n" + "=" * 50)
@@ -48,6 +49,82 @@ def make_scripts_executable():
             return False
     return True
 
+def get_credentials():
+    """Interactively get credentials from user"""
+    print("\n" + "=" * 50)
+    print("Configure Credentials")
+    print("=" * 50)
+    print("These will be stored securely in a .env file.\n")
+    
+    while True:
+        username = input("Enter your campus network username: ").strip()
+        if not username:
+            print("❌ Username cannot be empty")
+            continue
+        break
+    
+    while True:
+        password = input("Enter your campus network password: ").strip()
+        if not password:
+            print("❌ Password cannot be empty")
+            continue
+        break
+    
+    return username, password
+
+def save_env_file(username, password):
+    """Save credentials to .env file"""
+    env_file = Path(".") / ".env"
+    
+    # Create .env content
+    env_content = f"""# Captive Portal Credentials
+# DO NOT COMMIT THIS FILE TO VERSION CONTROL
+
+CAPTIVE_PORTAL_USERNAME="{username}"
+CAPTIVE_PORTAL_PASSWORD="{password}"
+"""
+    
+    try:
+        # Write to .env file
+        env_file.write_text(env_content)
+        
+        # On Unix, restrict permissions to owner only
+        if platform.system() != "Windows":
+            os.chmod(env_file, 0o600)
+        
+        print(f"✅ Credentials saved to .env file")
+        
+        # Verify it's in .gitignore
+        gitignore_file = Path(".") / ".gitignore"
+        if gitignore_file.exists():
+            gitignore_content = gitignore_file.read_text()
+            if ".env" not in gitignore_content:
+                with open(gitignore_file, "a") as f:
+                    f.write("\n# Environment variables\n.env\n")
+                print("✅ Added .env to .gitignore")
+        
+        return True
+    except Exception as e:
+        print(f"❌ Failed to save .env file: {e}")
+        return False
+
+def setup_environment_variables():
+    """Offer to set environment variables as alternative"""
+    print("\n" + "=" * 50)
+    print("Environment Variables Setup")
+    print("=" * 50)
+    print("\nAlternatively, you can set environment variables:")
+    
+    if platform.system() == "Windows":
+        print("\nOn Windows (Command Prompt):")
+        print('  set CAPTIVE_PORTAL_USERNAME=your_username')
+        print('  set CAPTIVE_PORTAL_PASSWORD=your_password')
+        print("\nOr set them permanently via System Properties > Environment Variables")
+    else:
+        print("\nOn Linux/macOS (add to ~/.bashrc or ~/.zshrc):")
+        print('  export CAPTIVE_PORTAL_USERNAME="your_username"')
+        print('  export CAPTIVE_PORTAL_PASSWORD="your_password"')
+
 def setup_cron_on_linux():
     """Offer to set up cron job on Linux"""
     if platform.system() != "Linux":
@@ -56,30 +133,55 @@ def setup_cron_on_linux():
     response = input("\nWould you like to set up a cron job? (y/n): ").strip().lower()
     if response in ["y", "yes"]:
         project_path = os.path.abspath(".")
-        cron_command = f"0 0 * * * {project_path}/linux/login.sh >> {project_path}/log/auto-login.log 2>&1"
+        cron_command = f"0 7 * * * {project_path}/linux/login.sh >> {project_path}/log/auto-login.log 2>&1"
         print(f"\nAdd this line to your crontab (crontab -e):\n{cron_command}")
+
+def setup_task_scheduler_on_windows():
+    """Provide instructions for Task Scheduler on Windows"""
+    if platform.system() != "Windows":
+        return
+    
+    response = input("\nWould you like to set up Task Scheduler? (y/n): ").strip().lower()
+    if response in ["y", "yes"]:
+        project_path = os.path.abspath(".")
+        bat_path = os.path.join(project_path, "windows", "autologin.bat")
+        
+        print(f"\nTo set up Task Scheduler:")
+        print("1. Press Win+S and search for 'Task Scheduler'")
+        print("2. Click 'Create Task'")
+        print("3. General tab:")
+        print('   - Name: "Campus Network Auto-Login"')
+        print("   - Check 'Run whether user is logged on or not'")
+        print("4. Triggers tab:")
+        print("   - Click 'New' and set to 'Daily' at your preferred time")
+        print("5. Actions tab:")
+        print("   - Action: 'Start a program'")
+        print(f'   - Program: {bat_path}')
+        print("6. Click OK and enter your password")
 
 def print_next_steps():
     """Print instructions for next steps"""
     print("\n" + "=" * 50)
     print("✅ Installation Complete!")
     print("=" * 50)
-    print("\nNext steps:")
-    print("1. Edit src/login.py and update credentials:")
-    print("   - USERNAME = 'your_username'")
-    print("   - PASSWORD = 'your_password'")
-    print("\n2. Test the script:")
+    print("\nYou can now use the following commands to run the auto-login:\n")
     
     if platform.system() == "Windows":
-        print("   - Run: windows\\autologin.bat")
+        print("Windows:")
+        print("  windows\\autologin.bat")
     else:
-        print("   - Run: ./linux/login.sh")
+        print("Linux/macOS:")
+        print("  ./linux/login.sh")
     
-    print("\n3. Set up automation:")
+    print("\nFor automation:")
     if platform.system() == "Windows":
-        print("   - Use Task Scheduler to run windows\\autologin.bat periodically")
+        print("  - Use Task Scheduler (see instructions above)")
     else:
-        print("   - Use crontab to schedule linux/login.sh")
+        print("  - Use crontab (see instructions above)")
+    
+    print("\nTo update credentials later:")
+    print("  - Edit .env file, or")
+    print("  - Set environment variables: CAPTIVE_PORTAL_USERNAME and CAPTIVE_PORTAL_PASSWORD")
 
 def main():
     print_header()
@@ -97,7 +199,20 @@ def main():
     if not make_scripts_executable():
         pass  # Don't exit, it's not critical
     
-    setup_cron_on_linux()
+    # Get and save credentials
+    username, password = get_credentials()
+    if not save_env_file(username, password):
+        sys.exit(1)
+    
+    # Offer environment variable setup info
+    setup_environment_variables()
+    
+    # Platform-specific automation setup
+    if platform.system() == "Windows":
+        setup_task_scheduler_on_windows()
+    elif platform.system() == "Linux":
+        setup_cron_on_linux()
+    
     print_next_steps()
 
 if __name__ == "__main__":

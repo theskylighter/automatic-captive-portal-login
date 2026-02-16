@@ -134,38 +134,95 @@ def setup_environment_variables():
         print('  export CAPTIVE_PORTAL_PASSWORD="your_password"')
 
 def setup_cron_on_linux():
-    """Offer to set up cron job on Linux"""
+    """Set up cron job on Linux with confirmation"""
     if platform.system() != "Linux":
         return
     
-    response = input("\nWould you like to set up a cron job? (y/n): ").strip().lower()
-    if response in ["y", "yes"]:
-        project_path = os.path.abspath(".")
-        cron_command = f"0 0 * * * {project_path}/linux/login.sh >> {project_path}/log/auto-login.log 2>&1"
-        print(f"\nAdd this line to your crontab (crontab -e):\n{cron_command}")
+    response = input("\nWould you like to set up a cron job for automatic login? (y/n): ").strip().lower()
+    if response not in ["y", "yes"]:
+        print("\nSkipping cron setup.")
+        return
+    
+    project_path = os.path.abspath(".")
+    cron_command = f"0 0 * * * {project_path}/linux/login.sh >> {project_path}/log/auto-login.log 2>&1"
+    
+    print("\n" + "=" * 60)
+    print("CRON JOB SETUP INSTRUCTIONS")
+    print("=" * 60)
+    print("\nFollow these steps to set up automatic login:")
+    print("\n1. Open your crontab editor:")
+    print("   $ crontab -e")
+    print("\n2. Add this line to schedule the login script at midnight daily:")
+    print(f"   {cron_command}")
+    print("\n3. Save and exit the editor (for nano: Ctrl+O, Enter, Ctrl+X)")
+    print("\nNote: Log output will be saved to: " + os.path.join(project_path, "log", "auto-login.log"))
+    print("=" * 60)
+    
+    # Wait for confirmation
+    while True:
+        confirmation = input("\nHave you completed the cron setup? (y/n): ").strip().lower()
+        if confirmation in ["y", "yes"]:
+            print("✅ Cron job setup confirmed!")
+            break
+        elif confirmation in ["n", "no"]:
+            print("\nNo problem! You can set it up later manually.")
+            break
+        else:
+            print("Please enter 'y' or 'n'")
 
 def setup_task_scheduler_on_windows():
-    """Provide instructions for Task Scheduler on Windows"""
+    """Set up Task Scheduler on Windows with confirmation"""
     if platform.system() != "Windows":
         return
     
-    response = input("\nWould you like to set up Task Scheduler? (y/n): ").strip().lower()
-    if response in ["y", "yes"]:
-        project_path = os.path.abspath(".")
-        bat_path = os.path.join(project_path, "windows", "autologin.bat")
-        
-        print(f"\nTo set up Task Scheduler:")
-        print("1. Press Win+S and search for 'Task Scheduler'")
-        print("2. Click 'Create Task'")
-        print("3. General tab:")
-        print('   - Name: "Campus Network Auto-Login"')
-        print("   - Check 'Run whether user is logged on or not'")
-        print("4. Triggers tab:")
-        print("   - Click 'New' and set to 'Daily' at your preferred time")
-        print("5. Actions tab:")
-        print("   - Action: 'Start a program'")
-        print(f'   - Program: {bat_path}')
-        print("6. Click OK and enter your password")
+    response = input("\nWould you like to set up Task Scheduler for automatic login? (y/n): ").strip().lower()
+    if response not in ["y", "yes"]:
+        print("\nSkipping Task Scheduler setup.")
+        return
+    
+    project_path = os.path.abspath(".")
+    bat_path = os.path.join(project_path, "windows", "autologin.bat")
+    
+    print("\n" + "=" * 60)
+    print("TASK SCHEDULER SETUP INSTRUCTIONS")
+    print("=" * 60)
+    print("\nFollow these step-by-step instructions:")
+    print("\n1. Open Task Scheduler:")
+    print("   - Press Win+S and search for 'Task Scheduler'")
+    print("   - Click 'Task Scheduler'")
+    print("\n2. Create a new task:")
+    print("   - On the right panel, click 'Create Task'")
+    print("\n3. Configure the GENERAL tab:")
+    print('   - Name: "Campus Network Auto-Login"')
+    print("   - Description: (Optional) Auto-login to captive portal")
+    print("   - Check the box: 'Run whether user is logged on or not'")
+    print("   - Check the box: 'Run with highest privileges' (recommended)")
+    print("\n4. Configure the TRIGGERS tab:")
+    print("   - Click 'New...'")
+    print("   - Begin the task: 'On a schedule'")
+    print("   - Set to: 'Daily' at your preferred time (e.g., 8:00 AM)")
+    print("   - Click OK")
+    print("\n5. Configure the ACTIONS tab:")
+    print("   - Click 'New...'")
+    print("   - Action: 'Start a program'")
+    print(f"   - Program/script: {bat_path}")
+    print("   - Click OK")
+    print("\n6. Click OK to save the task:")
+    print("   - You may be prompted to enter your password")
+    print("   - Enter your Windows password and click OK")
+    print("=" * 60)
+    
+    # Wait for confirmation
+    while True:
+        confirmation = input("\nHave you completed the Task Scheduler setup? (y/n): ").strip().lower()
+        if confirmation in ["y", "yes"]:
+            print("✅ Task Scheduler setup confirmed!")
+            break
+        elif confirmation in ["n", "no"]:
+            print("\nNo problem! You can set it up later manually.")
+            break
+        else:
+            print("Please enter 'y' or 'n'")
 
 def print_next_steps():
     """Print instructions for next steps"""

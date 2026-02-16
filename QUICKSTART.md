@@ -15,7 +15,7 @@ curl -fsSL https://raw.githubusercontent.com/theskylighter/automatic-captive-por
 
 ### Windows (PowerShell)
 ```powershell
-iex(New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/theskylighter/automatic-captive-portal-login/main/install.ps1')
+powershell -NoProfile -ExecutionPolicy Bypass -Command "iex(New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/theskylighter/automatic-captive-portal-login/main/install.ps1')"
 ```
 
 

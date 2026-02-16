@@ -6,22 +6,22 @@ REM    or: install.cmd
 setlocal enabledelayedexpansion
 
 echo.
-echo ╔════════════════════════════════════════════════════════════╗
-echo ║      Captive Portal Auto-Login - Installation             ║
-echo ╚════════════════════════════════════════════════════════════╝
+echo ============================================================
+echo   Captive Portal Auto-Login - Installation
+echo ============================================================
 echo.
 
 REM Check if running locally or from download
 if exist ".git" (
     if exist "install\install.py" (
-        echo ✅ Running from local repository
+        echo [OK] Running from local repository
         set "INSTALL_DIR=%cd%"
         goto :run_installer
     )
 )
 
 REM Clone from GitHub
-echo 📥 Cloning repository...
+echo [*] Cloning repository...
 
 set "REPO_URL=https://github.com/theskylighter/automatic-captive-portal-login.git"
 set "INSTALL_DIR=%USERPROFILE%\.captive-portal-login"
@@ -29,7 +29,7 @@ set "INSTALL_DIR=%USERPROFILE%\.captive-portal-login"
 REM Check if git is installed
 where git >nul 2>nul
 if errorlevel 1 (
-    echo ❌ Git is not installed
+    echo [ERROR] Git is not installed
     echo Please install Git and try again, or:
     echo   1. Download the repository manually
     echo   2. Run: python install\install.py
@@ -39,15 +39,15 @@ if errorlevel 1 (
 
 REM Clone repository
 if exist "!INSTALL_DIR!" (
-    echo 📁 Repository already exists at !INSTALL_DIR!
+    echo [*] Repository already exists at !INSTALL_DIR!
 ) else (
     git clone "!REPO_URL!" "!INSTALL_DIR!"
     if errorlevel 1 (
-        echo ❌ Failed to clone repository
+        echo [ERROR] Failed to clone repository
         pause
         exit /b 1
     )
-    echo ✅ Repository cloned to !INSTALL_DIR!
+    echo [OK] Repository cloned to !INSTALL_DIR!
 )
 
 cd /d "!INSTALL_DIR!"
@@ -55,35 +55,54 @@ cd /d "!INSTALL_DIR!"
 :run_installer
 REM Verify installation files exist
 if not exist "install\install.py" (
-    echo ❌ Installation files not found
+    echo [ERROR] Installation files not found
     pause
     exit /b 1
 )
 
 echo.
-echo 🔧 Running setup...
+echo [*] Running setup...
 echo.
 
+REM Try to find Python executable (works across different Python installations)
+for %%i in (python.exe python py.exe) do (
+    %%i --version >nul 2>&1
+    if !errorlevel! equ 0 (
+        set "PYTHON_CMD=%%i"
+        goto :found_python
+    )
+)
+
+:python_not_found
+echo [ERROR] Python not found in PATH!
+echo.
+echo Please install Python 3.6+ or add it to your system PATH
+echo Download from: https://www.python.org/downloads/
+echo.
+pause
+exit /b 1
+
+:found_python
 REM Run the main installer
-python3 install\install.py
+%PYTHON_CMD% install\install.py
 
 if errorlevel 1 (
     echo.
-    echo ❌ Installation failed
+    echo [ERROR] Installation failed
     pause
     exit /b 1
 )
 
 echo.
-echo ═════════════════════════════════════════════════════════
-echo                 ✅ Installation Complete!
-echo ═════════════════════════════════════════════════════════
+echo ============================================================
+echo                 Installation Complete!
+echo ============================================================
 echo.
-echo 📍 Project location: !INSTALL_DIR!
+echo Project location: !INSTALL_DIR!
 echo.
-echo 🚀 To run the script:
-echo    windows\autologin.bat
+echo To run the script:
+echo   windows\autologin.bat
 echo.
-echo 📚 For more information: type README.md
+echo For more information: type README.md
 echo.
 pause

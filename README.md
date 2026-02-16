@@ -11,10 +11,16 @@ Automatic login to campus network captive portal with **one-command installation
 bash <(curl -fsSL https://raw.githubusercontent.com/theskylighter/automatic-captive-portal-login/main/install.sh)
 ```
 
+**Windows (Command Prompt):**
+```cmd
+curl -fsSL https://raw.githubusercontent.com/theskylighter/automatic-captive-portal-login/main/install.cmd -o %temp%\install.cmd && %temp%\install.cmd
+```
+
 **Windows (PowerShell):**
 ```powershell
-iex(New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/theskylighter/automatic-captive-portal-login/main/install.cmd')
+iex(New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/theskylighter/automatic-captive-portal-login/main/install.ps1')
 ```
+
 
 That's it! The installer will:
 - ✅ Clone the repository
@@ -32,7 +38,8 @@ That's it! The installer will:
 ```
 automatic-captive-portal-login/
 ├── install.sh                   # One-command bootstrap (Linux/macOS)
-├── install.cmd                  # One-command bootstrap (Windows)
+├── install.ps1                  # One-command bootstrap (Windows)
+├── install.cmd                  # Legacy batch installer (Windows)
 │
 ├── src/
 │   ├── login.py                 # Core login script

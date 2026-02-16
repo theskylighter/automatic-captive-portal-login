@@ -3,7 +3,6 @@ import requests
 import time
 import subprocess
 import sys
-import shutil
 import socket
 import logging
 import os
@@ -24,6 +23,13 @@ logging.basicConfig(
         logging.StreamHandler(sys.stdout)
     ]
 )
+
+# Get the directory to store response files (cross-platform)
+def get_response_file_path():
+    """Get cross-platform path for storing login responses"""
+    # Store in project root
+    project_root = Path(__file__).parent.parent
+    return project_root / "last_login_response.html"
 
 def load_credentials():
     """Load credentials from environment variables, config manager, or .env file"""
@@ -115,10 +121,16 @@ def login_to_network():
     try:
         response = requests.post(LOGIN_URL, headers=HEADERS, data=PAYLOAD)
         if response.status_code == 200:
+            # Save response to find logout info (cross-platform path)
+            response_file = get_response_file_path()
+            try:
+                with open(response_file, "w") as f:
+                    f.write(response.text)
+            except Exception as file_error:
+                logging.warning(f"⚠️ Could not save response file: {file_error}")
+            
+            # Only mark as successful after receiving 200 status
             logging.info("✅ Successfully logged in! Exiting script.")
-            # Save response to find logout info
-            with open("/home/shivam/scripts/last_login_response.html", "w") as f:
-                f.write(response.text)
             return True  # Login successful
         else:
             logging.warning(f"⚠️ Login failed with status code: {response.status_code}")

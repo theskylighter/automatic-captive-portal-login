@@ -7,9 +7,23 @@
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
+# Verify Python is available
+if ! command -v python3 &> /dev/null; then
+    echo ""
+    echo "❌ Error: Python 3 not found!"
+    echo ""
+    echo "Please install Python 3.6+ first."
+    echo "On Ubuntu/Debian: sudo apt-get install python3 python3-pip"
+    echo "On macOS: brew install python3"
+    echo ""
+    exit 1
+fi
+
 # Load .env file if it exists
 if [ -f "$PROJECT_ROOT/.env" ]; then
-    export $(grep -v '^#' "$PROJECT_ROOT/.env" | xargs)
+    set -a
+    source "$PROJECT_ROOT/.env"
+    set +a
 fi
 
 # Check if credentials are set

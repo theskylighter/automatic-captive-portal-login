@@ -29,11 +29,19 @@ def install_requirements():
     """Install Python packages from requirements.txt"""
     print("\nInstalling Python dependencies...")
     try:
+        # Use the same Python executable that's running this script
         subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", "requirements.txt"])
         print("✅ Dependencies installed")
         return True
-    except subprocess.CalledProcessError:
-        print("❌ Failed to install dependencies")
+    except subprocess.CalledProcessError as e:
+        print(f"❌ Failed to install dependencies (exit code: {e.returncode})")
+        print("\nTroubleshooting:")
+        print("  - Make sure pip is available: python -m pip --version")
+        print("  - Try upgrading pip: python -m pip install --upgrade pip")
+        print(f"  - Run manually: {sys.executable} -m pip install -r requirements.txt")
+        return False
+    except FileNotFoundError:
+        print("❌ pip not found. This should not happen with Python 3.4+")
         return False
 
 def make_scripts_executable():

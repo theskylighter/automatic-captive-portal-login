@@ -24,14 +24,15 @@ if ((Test-Path ".git") -and (Test-Path "install\install.py")) {
         exit 1
     }
 
-    # Clone repository if not exists
+    # Remove existing repository to ensure fresh install
     if (Test-Path $installDir) {
-        Write-Host "[DIR] Repository already exists at $installDir"
-    } else {
-        Write-Host "[DOWNLOAD] Cloning repository..."
-        & git clone $repoUrl $installDir
-        Write-Host "[OK] Repository cloned to $installDir"
+        Write-Host "[UPDATE] Removing old version..."
+        Remove-Item -Path $installDir -Recurse -Force
     }
+
+    Write-Host "[DOWNLOAD] Cloning repository..."
+    & git clone $repoUrl $installDir
+    Write-Host "[OK] Repository cloned to $installDir"
 
     Set-Location $installDir
 }

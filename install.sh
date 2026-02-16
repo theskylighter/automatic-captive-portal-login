@@ -38,13 +38,14 @@ else
         exit 1
     fi
     
-    # Check if directory already exists
+    # Remove existing directory to ensure fresh install
     if [ -d "$INSTALL_DIR" ]; then
-        echo -e "${BLUE}📁 Repository already exists at $INSTALL_DIR${NC}"
-    else
-        git clone "$REPO_URL" "$INSTALL_DIR"
-        echo -e "${GREEN}✅ Repository cloned to $INSTALL_DIR${NC}"
+        echo -e "${BLUE}🔄 Removing old version...${NC}"
+        rm -rf "$INSTALL_DIR"
     fi
+    
+    git clone "$REPO_URL" "$INSTALL_DIR"
+    echo -e "${GREEN}✅ Repository cloned to $INSTALL_DIR${NC}"
     
     cd "$INSTALL_DIR"
 fi

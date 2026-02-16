@@ -37,18 +37,20 @@ if errorlevel 1 (
     exit /b 1
 )
 
-REM Clone repository
+REM Remove existing repository to ensure fresh install
 if exist "!INSTALL_DIR!" (
-    echo [*] Repository already exists at !INSTALL_DIR!
-) else (
-    git clone "!REPO_URL!" "!INSTALL_DIR!"
-    if errorlevel 1 (
-        echo [ERROR] Failed to clone repository
-        pause
-        exit /b 1
-    )
-    echo [OK] Repository cloned to !INSTALL_DIR!
+    echo [*] Removing old version...
+    rmdir /s /q "!INSTALL_DIR!"
 )
+
+echo [*] Cloning repository...
+git clone "!REPO_URL!" "!INSTALL_DIR!"
+if errorlevel 1 (
+    echo [ERROR] Failed to clone repository
+    pause
+    exit /b 1
+)
+echo [OK] Repository cloned to !INSTALL_DIR!
 
 cd /d "!INSTALL_DIR!"
 

@@ -4,9 +4,9 @@
 $ErrorActionPreference = "Stop"
 
 Write-Host ""
-Write-Host "╔════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-Write-Host "║      Captive Portal Auto-Login - Installation             ║" -ForegroundColor Cyan
-Write-Host "╚════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+Write-Host "============================================================" -ForegroundColor Cyan
+Write-Host "      Captive Portal Auto-Login - Installation" -ForegroundColor Cyan
+Write-Host "============================================================" -ForegroundColor Cyan
 Write-Host ""
 
 $repoUrl = "https://github.com/theskylighter/automatic-captive-portal-login.git"
@@ -55,9 +55,9 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host ""
-Write-Host "═════════════════════════════════════════════════════════" -ForegroundColor Green
-Write-Host "                 ✅ Installation Complete!" -ForegroundColor Green
-Write-Host "═════════════════════════════════════════════════════════" -ForegroundColor Green
+Write-Host "============================================================" -ForegroundColor Green
+Write-Host "                 Installation Complete!" -ForegroundColor Green
+Write-Host "============================================================" -ForegroundColor Green
 Write-Host ""
 Write-Host "📍 Project location: $installDir"
 Write-Host ""

@@ -1,4 +1,5 @@
 @echo off
+setlocal enabledelayedexpansion
 REM Captive Portal Auto-Login for Windows
 REM This script runs the login.py from the src folder
 

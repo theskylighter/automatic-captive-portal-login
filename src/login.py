@@ -38,7 +38,9 @@ def load_credentials():
     if use_config_manager:
         try:
             config = load_config()
-            return config.get_credentials()
+            # Strip quotes that might be passed from batch files or env vars
+            u, p = config.get_credentials()
+            return u.strip('"\''), p.strip('"\'')
         except Exception as e:
             logging.warning(f"Config manager error: {e}")
             use_config_manager = False
@@ -49,7 +51,7 @@ def load_credentials():
     password = os.getenv('CAPTIVE_PORTAL_PASSWORD')
     
     if username and password:
-        return username, password
+        return username.strip('"\''), password.strip('"\'')
     
     # Try .env file in project root
     env_file = Path(__file__).parent.parent / '.env'
@@ -124,14 +126,26 @@ def login_to_network():
             # Save response to find logout info (cross-platform path)
             response_file = get_response_file_path()
             try:
-                with open(response_file, "w") as f:
+                with open(response_file, "w", encoding="utf-8", errors="replace") as f:
                     f.write(response.text)
             except Exception as file_error:
                 logging.warning(f"⚠️ Could not save response file: {file_error}")
             
-            # Only mark as successful after receiving 200 status
-            logging.info("✅ Successfully logged in! Exiting script.")
-            return True  # Login successful
+            # VERIFY LOGIN SUCCESS:
+            # Captive portals often return 200 OK even if the password is wrong.
+            # We must check if the internet is actually working now.
+            logging.info("⏳ Verifying internet connectivity...")
+            time.sleep(2) # Give the network a moment to authorize
+            
+            if not is_network_down():
+                logging.info("✅ Login verified! Internet is active. Exiting script.")
+                return True
+            else:
+                logging.warning("⚠️ Portal returned 200 OK, but internet is still down.")
+                logging.warning("   (Possible wrong password or portal error)")
+                # Log the first 500 chars of response to help debug
+                logging.info(f"   Portal response snippet: {response.text[:500]}")
+                return False
         else:
             logging.warning(f"⚠️ Login failed with status code: {response.status_code}")
     except Exception as e:

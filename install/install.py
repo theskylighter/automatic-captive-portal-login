@@ -172,41 +172,73 @@ def setup_environment_variables():
         print('  export CAPTIVE_PORTAL_PASSWORD="your_password"')
 
 def setup_cron_on_linux():
-    """Set up cron job on Linux with confirmation"""
+    """Set up cron job on Linux with smart midnight schedule"""
     if platform.system() != "Linux":
         return
-    
-    response = input("\nWould you like to set up a cron job for automatic login? (y/n): ").strip().lower()
+
+    response = input("\nWould you like to set up automatic login around midnight (cron)? (y/n): ").strip().lower()
     if response not in ["y", "yes"]:
-        print("\nSkipping cron setup. You can do it later manually.")
+        print("\nSkipping cron setup. You can add it manually later.")
+        print("Run: crontab -e  and add:")
+        print("  58 23 * * * /bin/bash " + os.path.abspath("linux/login.sh"))
         return
-    
+
     project_path = os.path.abspath(".")
-    cron_command = f"0 0 * * * {project_path}/linux/login.sh >> {project_path}/log/auto-login.log 2>&1"
-    
-    print("\n" + "=" * 60)
-    print("CRON JOB SETUP INSTRUCTIONS")
-    print("=" * 60)
-    print("\nFollow these steps to set up automatic login:")
-    print("\n1. Open your crontab editor:")
-    print("   $ crontab -e")
-    print("\n2. Add this line to schedule the login script at midnight daily:")
-    print(f"   {cron_command}")
-    print("\n3. Save and exit the editor (for nano: Ctrl+O, Enter, Ctrl+X)")
-    print("\nNote: Log output will be saved to: " + os.path.join(project_path, "log", "auto-login.log"))
-    print("=" * 60)
-    
-    # Wait for confirmation
-    while True:
-        confirmation = input("\nHave you completed the cron setup? (y/n): ").strip().lower()
-        if confirmation in ["y", "yes"]:
-            print("[OK] Cron job setup confirmed!")
-            break
-        elif confirmation in ["n", "no"]:
-            print("\nNo problem! You can set it up later manually.")
-            break
+    login_sh = os.path.join(project_path, "linux", "login.sh")
+    log_dir = os.path.join(project_path, "log")
+    log_file = os.path.join(log_dir, "auto-login.log")
+
+    # Same schedule as macOS: 11:58 PM,
+    cron_entries = [
+        f"58 23 * * * /bin/bash {login_sh} >> {log_file} 2>&1",  # 11:58 PM - script monitors until login succeeds
+    ]
+
+    try:
+        os.makedirs(log_dir, exist_ok=True)
+
+        # Get existing crontab (if any)
+        result = subprocess.run(
+            ["crontab", "-l"],
+            capture_output=True, text=True
+        )
+        existing_crontab = result.stdout if result.returncode == 0 else ""
+
+        # Avoid duplicate entries
+        new_entries = []
+        for entry in cron_entries:
+            if entry not in existing_crontab:
+                new_entries.append(entry)
+
+        if not new_entries:
+            print("[OK] Cron jobs already set up, no duplicates added.")
+            return
+
+        updated_crontab = existing_crontab.rstrip("\n") + "\n" + "\n".join(new_entries) + "\n"
+
+        # Write updated crontab
+        proc = subprocess.Popen(["crontab", "-"], stdin=subprocess.PIPE)
+        proc.communicate(input=updated_crontab.encode())
+
+        if proc.returncode == 0:
+            print("[OK] Cron jobs installed successfully!")
+            print("[OK] Script will run at: 11:58 PM and monitor until login succeeds.")
+            print(f"[OK] Logs will be saved to: {log_file}")
+            print("\nTo view your cron jobs: crontab -l")
+            print("To remove them:          crontab -e")
         else:
-            print("Please enter 'y' or 'n'")
+            raise Exception("crontab command failed")
+
+    except FileNotFoundError:
+        print("[ERROR] 'crontab' command not found on this system.")
+        print("Install it with: sudo apt install cron  (Debian/Ubuntu)")
+        print("             or: sudo dnf install cronie (Fedora/RHEL)")
+    except Exception as e:
+        print(f"\n[ERROR] Could not install cron job: {e}")
+        print("You can add it manually by running: crontab -e")
+        print("And adding these lines:")
+        for entry in cron_entries:
+            print(f"  {entry}")
+
 
 def setup_task_scheduler_on_windows():
     """Set up Task Scheduler on Windows with confirmation"""
@@ -278,14 +310,9 @@ def setup_launchd_on_macos():
     launch_agents_dir = os.path.expanduser("~/Library/LaunchAgents")
     plist_path = os.path.join(launch_agents_dir, "com.captiveportal.autologin.plist")
 
-    # Run at 11:58 PM, then 12:00, 12:01, 12:02, 12:03, 12:05 AM to catch the reset window
+    # Run at 11:58 PM, 
     schedule_entries = [
-        (23, 58),  # 11:58 PM - before reset
-        (0, 0),    # 12:00 AM
-        (0, 1),    # 12:01 AM
-        (0, 2),    # 12:02 AM
-        (0, 3),    # 12:03 AM
-        (0, 5),    # 12:05 AM - safety net
+        (23, 58),  # 11:58 PM - script monitors until login succeeds
     ]
 
     calendar_intervals = ""

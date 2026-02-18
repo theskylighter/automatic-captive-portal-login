@@ -28,21 +28,59 @@ def check_python():
 def install_requirements():
     """Install Python packages from requirements.txt"""
     print("\nInstalling Python dependencies...")
-    try:
-        # Use the same Python executable that's running this script
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", "requirements.txt"])
+
+    def _pip_install(extra_args=None):
+        cmd = [sys.executable, "-m", "pip", "install", "-r", "requirements.txt"]
+        if extra_args:
+            cmd += extra_args
+        return subprocess.call(cmd)
+
+    # First attempt: normal install
+    ret = _pip_install()
+    if ret == 0:
         print("[OK] Dependencies installed")
         return True
-    except subprocess.CalledProcessError as e:
-        print(f"[ERROR] Failed to install dependencies (exit code: {e.returncode})")
-        print("\nTroubleshooting:")
-        print("  - Make sure pip is available: python -m pip --version")
-        print("  - Try upgrading pip: python -m pip install --upgrade pip")
-        print(f"  - Run manually: {sys.executable} -m pip install -r requirements.txt")
-        return False
-    except FileNotFoundError:
-        print("[ERROR] pip not found. This should not happen with Python 3.4+")
-        return False
+
+    # Second attempt: handle PEP 668 externally-managed-environment (macOS Homebrew, Debian 12+)
+    print("\n[INFO] System pip blocked direct installs (externally managed environment).")
+    print("[INFO] Trying with a virtual environment instead...")
+    try:
+        venv_dir = Path(".") / ".venv"
+        subprocess.check_call([sys.executable, "-m", "venv", str(venv_dir)])
+
+        # Determine venv python path
+        if platform.system() == "Windows":
+            venv_python = venv_dir / "Scripts" / "python.exe"
+        else:
+            venv_python = venv_dir / "bin" / "python3"
+
+        subprocess.check_call([str(venv_python), "-m", "pip", "install", "-r", "requirements.txt"])
+
+        # Rewrite the launcher scripts to use the venv python
+        _patch_launcher_for_venv(str(venv_python))
+
+        print("[OK] Dependencies installed inside virtual environment (.venv)")
+        return True
+    except Exception as venv_err:
+        print(f"[ERROR] Virtual environment setup failed: {venv_err}")
+
+    print("[ERROR] Failed to install dependencies")
+    print("\nTroubleshooting:")
+    print("  - Make sure pip is available: python3 -m pip --version")
+    print(f"  - Run manually: {sys.executable} -m pip install -r requirements.txt")
+    return False
+
+
+def _patch_launcher_for_venv(venv_python: str):
+    """Update linux/login.sh and login.py shebang to use the venv python."""
+    login_sh = Path("linux") / "login.sh"
+    if login_sh.exists():
+        content = login_sh.read_text()
+        # Replace the python3 call with the absolute venv python path
+        content = content.replace('python3 "$PROJECT_ROOT/src/login.py"',
+                                  f'"{venv_python}" "$PROJECT_ROOT/src/login.py"')
+        login_sh.write_text(content)
+        print(f"[OK] Updated linux/login.sh to use venv python")
 
 def make_scripts_executable():
     """Make shell scripts executable on Unix systems"""
@@ -140,7 +178,7 @@ def setup_cron_on_linux():
     
     response = input("\nWould you like to set up a cron job for automatic login? (y/n): ").strip().lower()
     if response not in ["y", "yes"]:
-        print("\nSkipping cron setup.")
+        print("\nSkipping cron setup. You can do it later manually.")
         return
     
     project_path = os.path.abspath(".")
@@ -149,12 +187,8 @@ def setup_cron_on_linux():
     print("\n" + "=" * 60)
     print("CRON JOB SETUP INSTRUCTIONS")
     print("=" * 60)
-    print("\n⚠️  Please READ these instructions carefully")
-    print("Press ENTER when you're ready to see them...")
-    input()
-    
-    print("\nFollow these steps to set up automatic login:\n")
-    print("1. Open your crontab editor:")
+    print("\nFollow these steps to set up automatic login:")
+    print("\n1. Open your crontab editor:")
     print("   $ crontab -e")
     print("\n2. Add this line to schedule the login script at midnight daily:")
     print(f"   {cron_command}")
@@ -162,18 +196,14 @@ def setup_cron_on_linux():
     print("\nNote: Log output will be saved to: " + os.path.join(project_path, "log", "auto-login.log"))
     print("=" * 60)
     
-    print("\n📝 Go ahead and follow the above steps in your terminal now...")
-    print("Press ENTER when you have completed ALL the steps above:")
-    input()
-    
     # Wait for confirmation
     while True:
-        confirmation = input("\nDid you successfully complete the cron setup? (y/n): ").strip().lower()
+        confirmation = input("\nHave you completed the cron setup? (y/n): ").strip().lower()
         if confirmation in ["y", "yes"]:
-            print("\n✅ Cron job setup confirmed! Your auto-login is now scheduled.")
+            print("[OK] Cron job setup confirmed!")
             break
         elif confirmation in ["n", "no"]:
-            print("\n⚠️  No problem! You can set it up later manually by following the instructions above.")
+            print("\nNo problem! You can set it up later manually.")
             break
         else:
             print("Please enter 'y' or 'n'")
@@ -185,7 +215,7 @@ def setup_task_scheduler_on_windows():
     
     response = input("\nWould you like to set up Task Scheduler for automatic login? (y/n): ").strip().lower()
     if response not in ["y", "yes"]:
-        print("\nSkipping Task Scheduler setup.")
+        print("\nSkipping Task Scheduler setup. You can do it later manually.")
         return
     
     project_path = os.path.abspath(".")
@@ -194,12 +224,8 @@ def setup_task_scheduler_on_windows():
     print("\n" + "=" * 60)
     print("TASK SCHEDULER SETUP INSTRUCTIONS")
     print("=" * 60)
-    print("\n⚠️  Please READ these instructions carefully")
-    print("Press ENTER when you're ready to see them...")
-    input()
-    
-    print("\nFollow these step-by-step instructions:\n")
-    print("1. Open Task Scheduler:")
+    print("\nFollow these step-by-step instructions:")
+    print("\n1. Open Task Scheduler:")
     print("   - Press Win+S and search for 'Task Scheduler'")
     print("   - Click 'Task Scheduler'")
     print("\n2. Create a new task:")
@@ -224,21 +250,70 @@ def setup_task_scheduler_on_windows():
     print("   - Enter your Windows password and click OK")
     print("=" * 60)
     
-    print("\n📝 Go ahead and follow the above steps in Task Scheduler now...")
-    print("Press ENTER when you have completed ALL the steps above:")
-    input()
-    
     # Wait for confirmation
     while True:
-        confirmation = input("\nDid you successfully complete the Task Scheduler setup? (y/n): ").strip().lower()
+        confirmation = input("\nHave you completed the Task Scheduler setup? (y/n): ").strip().lower()
         if confirmation in ["y", "yes"]:
-            print("\n✅ Task Scheduler setup confirmed! Your auto-login is now scheduled.")
+            print("[OK] Task Scheduler setup confirmed!")
             break
         elif confirmation in ["n", "no"]:
-            print("\n⚠️  No problem! You can set it up later manually by following the instructions above.")
+            print("\nNo problem! You can set it up later manually.")
             break
         else:
             print("Please enter 'y' or 'n'")
+
+
+def setup_launchd_on_macos():
+    """Set up launchd agent on macOS with confirmation"""
+    if platform.system() != "Darwin":
+        return
+
+    response = input("\nWould you like to set up automatic login on startup (launchd)? (y/n): ").strip().lower()
+    if response not in ["y", "yes"]:
+        print("\nSkipping launchd setup. You can do it later manually.")
+        return
+
+    project_path = os.path.abspath(".")
+    login_sh = os.path.join(project_path, "linux", "login.sh")
+    launch_agents_dir = os.path.expanduser("~/Library/LaunchAgents")
+    plist_path = os.path.join(launch_agents_dir, "com.captiveportal.autologin.plist")
+
+    plist_content = f"""<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.captiveportal.autologin</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>{login_sh}</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StartInterval</key>
+    <integer>300</integer>
+    <key>StandardOutPath</key>
+    <string>{project_path}/log/auto-login.log</string>
+    <key>StandardErrorPath</key>
+    <string>{project_path}/log/auto-login-error.log</string>
+</dict>
+</plist>
+"""
+
+    try:
+        os.makedirs(launch_agents_dir, exist_ok=True)
+        os.makedirs(os.path.join(project_path, "log"), exist_ok=True)
+        with open(plist_path, "w") as f:
+            f.write(plist_content)
+        subprocess.call(["launchctl", "load", plist_path])
+        print(f"[OK] launchd agent installed and loaded from {plist_path}")
+        print("[OK] The login script will now run automatically every 5 minutes.")
+        print("\nTo disable later, run:")
+        print(f"  launchctl unload {plist_path}")
+    except Exception as e:
+        print(f"\n[ERROR] Could not install launchd agent: {e}")
+        print("You can set it up manually later using the plist above.")
 
 def print_next_steps():
     """Print instructions for next steps"""
@@ -252,11 +327,13 @@ def print_next_steps():
         print("  windows\\autologin.bat")
     else:
         print("Linux/macOS:")
-        print("  ./linux/login.sh")
+        print("  bash linux/login.sh")
     
     print("\nFor automation:")
     if platform.system() == "Windows":
         print("  - Use Task Scheduler (see instructions above)")
+    elif platform.system() == "Darwin":
+        print("  - launchd agent (already set up if you chose yes above)")
     else:
         print("  - Use crontab (see instructions above)")
     
@@ -264,8 +341,6 @@ def print_next_steps():
     print("  - Edit .env file, or")
     print("  - Set environment variables: CAPTIVE_PORTAL_USERNAME and CAPTIVE_PORTAL_PASSWORD")
     print("\n" + "=" * 50)
-    print("Press ENTER to close this window...")
-    input()
 
 def main():
     print_header()
@@ -296,6 +371,8 @@ def main():
         setup_task_scheduler_on_windows()
     elif platform.system() == "Linux":
         setup_cron_on_linux()
+    elif platform.system() == "Darwin":
+        setup_launchd_on_macos()
     
     print_next_steps()
 

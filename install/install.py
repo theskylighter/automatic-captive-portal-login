@@ -268,7 +268,7 @@ def setup_launchd_on_macos():
     if platform.system() != "Darwin":
         return
 
-    response = input("\nWould you like to set up automatic login on startup (launchd)? (y/n): ").strip().lower()
+    response = input("\nWould you like to set up automatic login around midnight (launchd)? (y/n): ").strip().lower()
     if response not in ["y", "yes"]:
         print("\nSkipping launchd setup. You can do it later manually.")
         return
@@ -277,6 +277,26 @@ def setup_launchd_on_macos():
     login_sh = os.path.join(project_path, "linux", "login.sh")
     launch_agents_dir = os.path.expanduser("~/Library/LaunchAgents")
     plist_path = os.path.join(launch_agents_dir, "com.captiveportal.autologin.plist")
+
+    # Run at 11:58 PM, then 12:00, 12:01, 12:02, 12:03, 12:05 AM to catch the reset window
+    schedule_entries = [
+        (23, 58),  # 11:58 PM - before reset
+        (0, 0),    # 12:00 AM
+        (0, 1),    # 12:01 AM
+        (0, 2),    # 12:02 AM
+        (0, 3),    # 12:03 AM
+        (0, 5),    # 12:05 AM - safety net
+    ]
+
+    calendar_intervals = ""
+    for hour, minute in schedule_entries:
+        calendar_intervals += f"""        <dict>
+            <key>Hour</key>
+            <integer>{hour}</integer>
+            <key>Minute</key>
+            <integer>{minute}</integer>
+        </dict>
+"""
 
     plist_content = f"""<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -291,8 +311,9 @@ def setup_launchd_on_macos():
     </array>
     <key>RunAtLoad</key>
     <true/>
-    <key>StartInterval</key>
-    <integer>300</integer>
+    <key>StartCalendarInterval</key>
+    <array>
+{calendar_intervals}    </array>
     <key>StandardOutPath</key>
     <string>{project_path}/log/auto-login.log</string>
     <key>StandardErrorPath</key>
@@ -307,13 +328,15 @@ def setup_launchd_on_macos():
         with open(plist_path, "w") as f:
             f.write(plist_content)
         subprocess.call(["launchctl", "load", plist_path])
-        print(f"[OK] launchd agent installed and loaded from {plist_path}")
-        print("[OK] The login script will now run automatically every 5 minutes.")
+        print(f"[OK] launchd agent installed and loaded.")
+        print("[OK] Script will run at: 11:58 PM, 12:00, 12:01, 12:02, 12:03, 12:05 AM")
+        print("[OK] Also runs once on startup/login (in case Mac was asleep at midnight).")
         print("\nTo disable later, run:")
         print(f"  launchctl unload {plist_path}")
     except Exception as e:
         print(f"\n[ERROR] Could not install launchd agent: {e}")
-        print("You can set it up manually later using the plist above.")
+        print("You can set it up manually later.")
+
 
 def print_next_steps():
     """Print instructions for next steps"""

@@ -300,4 +300,11 @@ See GitHub repository for license details.
 
 </details>
 
+---
+
+## 📌 TODO
+
+- [ ] **Add a quick login command to PATH / `.bashrc`** — expose a short command (e.g. `log`) so the user can trigger a login from anywhere in the terminal without navigating to the project folder.
+- [ ] **Auto `cd` into the install directory on first run** — when the user runs the installer for the first time, automatically switch to (or instruct the shell to switch to) the project directory so the manual test commands (`./linux/login.sh`, etc.) work immediately without the user having to `cd` there themselves.
+
 

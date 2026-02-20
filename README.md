@@ -159,6 +159,8 @@ The `.env` file is protected by:
 
 ### Windows - Task Scheduler
 
+> 💡 The installer also creates a **"Captive Portal Login" shortcut on your Desktop** — use it to trigger login manually whenever the scheduled task misses due to network anomalies.
+
 1. Press `Win + S` → search "Task Scheduler" → Open
 2. Right-click → **Create Task**
 3. **General tab:**

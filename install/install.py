@@ -270,7 +270,7 @@ def setup_task_scheduler_on_windows():
     print("\n4. Configure the TRIGGERS tab:")
     print("   - Click 'New...'")
     print("   - Begin the task: 'On a schedule'")
-    print("   - Set to: 'Daily' at your preferred time (e.g., 8:00 AM)")
+    print("   - Set to: 'Daily' at your preferred time (e.g., 11:58 PM)")
     print("   - Click OK")
     print("\n5. Configure the ACTIONS tab:")
     print("   - Click 'New...'")
@@ -293,6 +293,43 @@ def setup_task_scheduler_on_windows():
             break
         else:
             print("Please enter 'y' or 'n'")
+
+
+def create_desktop_shortcut_on_windows():
+    """Create a desktop shortcut to autologin.bat for manual use when automation fails"""
+    if platform.system() != "Windows":
+        return
+
+    project_path = os.path.abspath(".")
+    bat_path = os.path.join(project_path, "windows", "autologin.bat")
+    desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
+    shortcut_path = os.path.join(desktop_path, "Captive Portal Login.lnk")
+
+    print("\nCreating desktop shortcut to autologin.bat...")
+
+    ps_script = f"""
+$WshShell = New-Object -ComObject WScript.Shell
+$Shortcut = $WshShell.CreateShortcut('{shortcut_path}')
+$Shortcut.TargetPath = '{bat_path}'
+$Shortcut.WorkingDirectory = '{project_path}'
+$Shortcut.Description = 'Captive Portal Auto-Login - Run manually if auto-login fails'
+$Shortcut.Save()
+"""
+
+    try:
+        result = subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_script],
+            capture_output=True, text=True
+        )
+        if result.returncode == 0:
+            print(f"[OK] Desktop shortcut created: {shortcut_path}")
+            print("[INFO] Use it to trigger login manually if the scheduled task misses due to network anomalies.")
+        else:
+            print(f"[WARNING] Could not create desktop shortcut: {result.stderr.strip()}")
+    except FileNotFoundError:
+        print("[WARNING] PowerShell not found; skipping desktop shortcut creation.")
+    except Exception as e:
+        print(f"[WARNING] Desktop shortcut creation failed: {e}")
 
 
 def setup_launchd_on_macos():
@@ -419,6 +456,7 @@ def main():
     # Platform-specific automation setup
     if platform.system() == "Windows":
         setup_task_scheduler_on_windows()
+        create_desktop_shortcut_on_windows()
     elif platform.system() == "Linux":
         setup_cron_on_linux()
     elif platform.system() == "Darwin":

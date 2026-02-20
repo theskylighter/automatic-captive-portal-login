@@ -174,7 +174,11 @@ The `.env` file is protected by:
    - OK
 6. Enter password, done!
 
-### Linux/macOS - Crontab
+### Linux - Crontab
+
+> 💡 The installer handles this automatically — it will ask during setup and register the cron job at **11:58 PM** daily (no manual steps needed).
+
+If you skipped it or want to add it manually:
 
 ```bash
 crontab -e
@@ -182,12 +186,12 @@ crontab -e
 
 Add this line:
 ```bash
-0 0 * * * /path/to/project/linux/login.sh >> /path/to/project/log/auto-login.log 2>&1
+58 23 * * * /bin/bash /path/to/project/linux/login.sh >> /path/to/project/log/auto-login.log 2>&1
 ```
 
 Replace `/path/to/project` with your actual project path.
 
-**What it does:** Runs daily at 12:00 AM (midnight)
+To view or remove the job: `crontab -l` / `crontab -e`
 
 </details>
 

@@ -47,6 +47,8 @@ Thumbs.db
 # Project specific
 *.html
 /logs/
+log/
+.service_no_log
 last_login_response.html
 
 # Config files with credentials (rename these)

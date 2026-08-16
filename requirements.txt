@@ -2,3 +2,4 @@
 # Python 3.6+
 
 requests>=2.28.0,<3.0
+pywin32>=305 ; sys_platform == 'win32'

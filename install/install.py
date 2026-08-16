@@ -240,59 +240,36 @@ def setup_cron_on_linux():
             print(f"  {entry}")
 
 
-def setup_task_scheduler_on_windows():
-    """Set up Task Scheduler on Windows with confirmation"""
+def setup_windows_service():
+    """Install the 24/7 auto-login Windows service (default, replaces Task Scheduler)"""
     if platform.system() != "Windows":
         return
-    
-    response = input("\nWould you like to set up Task Scheduler for automatic login? (y/n): ").strip().lower()
-    if response not in ["y", "yes"]:
-        print("\nSkipping Task Scheduler setup. You can do it later manually.")
-        return
-    
-    project_path = os.path.abspath(".")
-    bat_path = os.path.join(project_path, "windows", "autologin.bat")
-    
+
     print("\n" + "=" * 60)
-    print("TASK SCHEDULER SETUP INSTRUCTIONS")
+    print("24/7 WINDOWS SERVICE (RECOMMENDED)")
     print("=" * 60)
-    print("\nFollow these step-by-step instructions:")
-    print("\n1. Open Task Scheduler:")
-    print("   - Press Win+S and search for 'Task Scheduler'")
-    print("   - Click 'Task Scheduler'")
-    print("\n2. Create a new task:")
-    print("   - On the right panel, click 'Create Task'")
-    print("\n3. Configure the GENERAL tab:")
-    print('   - Name: "Campus Network Auto-Login"')
-    print("   - Description: (Optional) Auto-login to captive portal")
-    print("   - Check the box: 'Run whether user is logged on or not'")
-    print("   - Check the box: 'Run with highest privileges' (recommended)")
-    print("\n4. Configure the TRIGGERS tab:")
-    print("   - Click 'New...'")
-    print("   - Begin the task: 'On a schedule'")
-    print("   - Set to: 'Daily' at your preferred time (e.g., 11:58 PM)")
-    print("   - Click OK")
-    print("\n5. Configure the ACTIONS tab:")
-    print("   - Click 'New...'")
-    print("   - Action: 'Start a program'")
-    print(f"   - Program/script: {bat_path}")
-    print("   - Click OK")
-    print("\n6. Click OK to save the task:")
-    print("   - You may be prompted to enter your password")
-    print("   - Enter your Windows password and click OK")
-    print("=" * 60)
-    
-    # Wait for confirmation
-    while True:
-        confirmation = input("\nHave you completed the Task Scheduler setup? (y/n): ").strip().lower()
-        if confirmation in ["y", "yes"]:
-            print("[OK] Task Scheduler setup confirmed!")
-            break
-        elif confirmation in ["n", "no"]:
-            print("\nNo problem! You can set it up later manually.")
-            break
-        else:
-            print("Please enter 'y' or 'n'")
+    print("\nInstead of Task Scheduler, this project now ships a real Windows")
+    print("service that:")
+    print("  - Starts automatically at boot (no login required)")
+    print("  - Monitors the network continuously")
+    print("  - Re-logs-in automatically whenever the portal drops the session")
+    print("  - Auto-restarts the login script if it ever crashes")
+
+    response = input("\nInstall the 24/7 auto-login Windows service? (Y/n): ").strip().lower()
+    if response in ["", "y", "yes"]:
+        print("\nLaunching the service installer...")
+        print("NOTE: A UAC (admin) prompt will appear. Click 'Yes' to continue.")
+        print("The elevated installer runs in its own window and shows progress.\n")
+        installer = os.path.join(os.path.abspath("."), "install", "install_service.py")
+        subprocess.call([sys.executable, installer, "install"])
+        print("\nThe elevated installer has been launched. Wait for it to finish,")
+        print("then verify with:  python install\\install_service.py status")
+        return
+
+    print("\nSkipping the Windows service. You have two options later:")
+    print("  (a) RECOMMENDED - Install the 24/7 service:")
+    print("        python install\\install_service.py install")
+    print("  (b) Legacy - Manual Task Scheduler setup (see README for steps)")
 
 
 def create_desktop_shortcut_on_windows():
@@ -323,7 +300,7 @@ $Shortcut.Save()
         )
         if result.returncode == 0:
             print(f"[OK] Desktop shortcut created: {shortcut_path}")
-            print("[INFO] Use it to trigger login manually if the scheduled task misses due to network anomalies.")
+            print("[INFO] Use it to trigger login manually if the service hasn't logged in yet.")
         else:
             print(f"[WARNING] Could not create desktop shortcut: {result.stderr.strip()}")
     except FileNotFoundError:
@@ -418,7 +395,9 @@ def print_next_steps():
     
     print("\nFor automation:")
     if platform.system() == "Windows":
-        print("  - Use Task Scheduler (see instructions above)")
+        print("  - 24/7 Windows service (installed above): auto-login at boot")
+        print("  - Check status with:  python install\\install_service.py status")
+        print("  - Remove later with:  python install\\install_service.py uninstall")
     elif platform.system() == "Darwin":
         print("  - launchd agent (already set up if you chose yes above)")
     else:
@@ -455,7 +434,7 @@ def main():
     
     # Platform-specific automation setup
     if platform.system() == "Windows":
-        setup_task_scheduler_on_windows()
+        setup_windows_service()
         create_desktop_shortcut_on_windows()
     elif platform.system() == "Linux":
         setup_cron_on_linux()

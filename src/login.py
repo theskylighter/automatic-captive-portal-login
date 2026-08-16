@@ -4,6 +4,7 @@ import time
 import subprocess
 import sys
 import socket
+import argparse
 import logging
 import os
 from pathlib import Path
@@ -23,6 +24,14 @@ logging.basicConfig(
         logging.StreamHandler(sys.stdout)
     ]
 )
+
+# Windows consoles/pipes default to cp1252 and crash on emoji log messages.
+# Use UTF-8 with lossless-ish replacement so headless/redirected runs survive.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError, OSError):
+        pass
 
 # Get the directory to store response files (cross-platform)
 def get_response_file_path():
@@ -111,6 +120,11 @@ PAYLOAD = {
     "accept": "LOGIN"
 }
 
+# Connectivity check interval (seconds) while the network is up.
+# One-shot mode keeps the historical 1s cadence; continuous (24/7) mode
+# checks less often to avoid hammering the connectivity server.
+MONITOR_INTERVAL_SECONDS = 10
+
 def is_network_down():
     """Check if the network is down by attempting to reach a non-redirecting URL."""
     try:
@@ -157,30 +171,74 @@ def login_to_network():
     
     return False  # Login failed
 
+def parse_args():
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(description="Captive Portal Auto-Login")
+    parser.add_argument(
+        "--continuous",
+        action="store_true",
+        help="Run 24/7: keep monitoring and re-login automatically whenever the "
+             "captive portal drops the session (used by the Windows service).",
+    )
+    parser.add_argument(
+        "--quiet",
+        action="store_true",
+        help="Suppress all console and file logging.",
+    )
+    parser.add_argument(
+        "--no-service-log",
+        action="store_true",
+        help="Alias for --quiet: suppress all console and file logging "
+             "(used by the Windows service).",
+    )
+    return parser.parse_args()
+
+
+def setup_file_logging():
+    """Add a file handler so headless runs (e.g. under the service) still log."""
+    log_dir = Path(__file__).resolve().parent.parent / "log"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    handler = logging.FileHandler(log_dir / "login.log", encoding="utf-8")
+    handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
+    logging.getLogger().addHandler(handler)
+
+
 def main():
     """Keep checking network status and login when needed."""
-    logging.info("🌐 Monitoring network status...")
-    
-    # Set timeout of 15 minutes (900 seconds)
-    TIMEOUT_SECONDS = 15 * 60  # 900 seconds
+    args = parse_args()
+    continuous = args.continuous
+
+    if args.quiet or args.no_service_log:
+        # Silent mode: suppress everything (console and file).
+        logging.disable(logging.CRITICAL)
+    elif continuous:
+        setup_file_logging()
+
+    logging.info("🌐 Monitoring network status..." + (" [continuous mode]" if continuous else ""))
+
+    # One-shot mode gives up after 15 minutes; continuous mode runs forever.
+    TIMEOUT_SECONDS = None if continuous else 15 * 60  # 900 seconds
     start_time = time.time()
     last_status_was_down = False
 
     while True:
         elapsed_time = time.time() - start_time
-        
-        # Check if timeout exceeded
-        if elapsed_time > TIMEOUT_SECONDS:
+
+        # Check if timeout exceeded (one-shot mode only)
+        if TIMEOUT_SECONDS is not None and elapsed_time > TIMEOUT_SECONDS:
             logging.info(f"⏰ Timeout reached! ({TIMEOUT_SECONDS // 60} minutes elapsed). Exiting.")
             sys.exit(1)  # Exit with error code
-        
+
         if is_network_down():
-            remaining_secs = int(TIMEOUT_SECONDS - elapsed_time)
-            remaining_mins = remaining_secs // 60
-            remaining_secs = remaining_secs % 60
-            logging.warning(f"🚫 Network down. Trying to log in... ({remaining_mins}m {remaining_secs}s remaining)")
+            remaining = ""
+            if TIMEOUT_SECONDS is not None:
+                remaining_secs = int(TIMEOUT_SECONDS - elapsed_time)
+                remaining = f" ({remaining_secs // 60}m {remaining_secs % 60}s remaining)"
+            logging.warning(f"🚫 Network down. Trying to log in...{remaining}")
             if login_to_network():
-                sys.exit()  # Exit script once login is successful
+                logging.info("✅ Login successful.")
+                if not continuous:
+                    sys.exit()  # Exit script once login is successful
             else:
                 logging.error("❌ Login attempt failed. Retrying in 5 seconds...")
                 time.sleep(5)
@@ -189,7 +247,7 @@ def main():
             if last_status_was_down:
                 logging.info("✅ Network restored.")
                 last_status_was_down = False
-            time.sleep(1)
+            time.sleep(MONITOR_INTERVAL_SECONDS if continuous else 1)
 
 if __name__ == "__main__":
     main()

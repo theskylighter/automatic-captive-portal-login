@@ -42,14 +42,16 @@ automatic-captive-portal-login/
 ├── install.cmd                  # Legacy batch installer (Windows)
 │
 ├── src/
-│   ├── login.py                 # Core login script
+│   ├── login.py                 # Core login script (--continuous for 24/7)
+│   ├── service.py               # Windows service wrapper (24/7 autostart)
 │   └── config.py                # Configuration manager
 ├── windows/
 │   └── autologin.bat            # Windows launcher
 ├── linux/
 │   └── login.sh                 # Linux/macOS launcher
 ├── install/
-│   └── install.py               # Universal Python installer
+│   ├── install.py               # Universal Python installer
+│   └── install_service.py       # Windows service install/manage/uninstall
 ├── requirements.txt             # Python dependencies
 └── README.md                    # Documentation
 ```
@@ -96,6 +98,9 @@ The installer will automatically:
 - ✅ Install dependencies
 - ✅ Ask for your credentials
 - ✅ Save everything to `.env` (protected file)
+- ✅ On Windows: ask about the **24/7 auto-login service** (default: Yes) and
+  install it — it starts at boot and monitors around the clock (no Task Scheduler)
+- ✅ Create a desktop shortcut for manual login (Windows)
 - ✅ All done!
 
 **Test the script:**
@@ -157,22 +162,34 @@ The `.env` file is protected by:
 <details>
 <summary><b>⏰ Set Up Automation (12:00 AM Daily)</b></summary>
 
-### Windows - Task Scheduler
+### Windows - 24/7 Service (no Task Scheduler)
 
-> 💡 The installer also creates a **"Captive Portal Login" shortcut on your Desktop** — use it to trigger login manually whenever the scheduled task misses due to network anomalies.
+> 💡 The installer handles this automatically — it will ask during setup and,
+> by default (press **Enter**), installs the **24/7 Windows service** which
+> auto-logs-in at boot and monitors around the clock. No Task Scheduler needed.
 
-1. Press `Win + S` → search "Task Scheduler" → Open
-2. Right-click → **Create Task**
-3. **General tab:**
-   - Name: "Campus Network Auto-Login"
-   - ☑️ "Run whether user is logged on or not"
-4. **Triggers tab:**
-   - Click **New** → Daily → 12:00 AM → OK
-5. **Actions tab:**
-   - Click **New** → Action: "Start a program"
-   - Program/script: `windows\autologin.bat`
-   - OK
-6. Enter password, done!
+If you skipped it during install, or want the manual alternative:
+
+- **(Recommended)** Install the service:
+  ```cmd
+  python install\install_service.py install
+  ```
+  (See the [🚀 24/7 Windows Service](#-247-windows-service-recommended--no-task-scheduler)
+  section below for full details.)
+
+- **(Legacy, not recommended)** Manual Task Scheduler:
+  1. Press `Win + S` → search "Task Scheduler" → Open
+  2. Right-click → **Create Task**
+  3. **General tab:**
+     - Name: "Campus Network Auto-Login"
+     - ☑️ "Run whether user is logged on or not"
+  4. **Triggers tab:**
+     - Click **New** → Daily → 12:00 AM → OK
+  5. **Actions tab:**
+     - Click **New** → Action: "Start a program"
+     - Program/script: `windows\autologin.bat`
+     - OK
+  6. Enter password, done!
 
 ### Linux - Crontab
 
@@ -198,14 +215,94 @@ To view or remove the job: `crontab -l` / `crontab -e`
 ---
 
 <details>
+<summary><b>🚀 24/7 Windows Service (Recommended — no Task Scheduler)</b></summary>
+
+The Windows service keeps monitoring and re-logging-in **around the clock**
+(no daily schedule needed) and **starts automatically at boot**. It replaces
+the Task Scheduler approach entirely.
+
+### Install (run once, from an elevated prompt — a UAC prompt will appear)
+
+```cmd
+python install\install_service.py install
+```
+
+To also disable the service's own log (`log/service.log`):
+
+```cmd
+python install\install_service.py install --no-service-log
+```
+
+Re-run `install` **without** the flag to re-enable service logging.
+
+This will:
+- ✅ Install `pywin32` + `requests` **system-wide** (required — services run as
+  LocalSystem and cannot see per-user pip installs)
+- ✅ Register the `CaptivePortalLogin` service (Automatic → delayed start)
+- ✅ Start the service immediately
+- ✅ Configure auto-restart if the login script ever crashes
+
+### Manage
+
+```cmd
+python install\install_service.py status     REM check state / start type
+python install\install_service.py stop
+python install\install_service.py start
+python install\install_service.py restart
+python install\install_service.py uninstall  REM stop + remove service
+```
+
+> The service replaces Task Scheduler. The desktop shortcut is still created
+> during install — use it (or `windows\autologin.bat`) for manual on-demand
+> login whenever you want.
+
+### Logs
+
+| File                     | Contents                                  |
+|--------------------------|-------------------------------------------|
+| `log/login.log`          | Login attempts / connectivity status      |
+| `log/service.out.log`    | Login script stdout                       |
+| `log/service.err.log`    | Login script errors                       |
+| `log/service.log`        | Service lifecycle events (disabled by `--no-service-log`) |
+
+</details>
+
+---
+
+<details>
 <summary><b>📝 How It Works</b></summary>
 
 The script:
-1. Continuously monitors network connectivity (checks every 1 second)
+1. Continuously monitors network connectivity
 2. Detects when a captive portal appears
 3. Automatically sends your login credentials
-4. On success: Script exits ✅
+4. On success: Script exits ✅ *(one-shot mode — used by `windows\autologin.bat`)*
 5. On failure: Retries every 5 seconds (up to 15 minutes)
+
+### 24/7 mode
+
+When run with `--continuous` (used by the Windows service), the script never
+times out or exits:
+
+1. Monitors connectivity every 10 seconds
+2. When the captive portal drops the session (e.g. daily midnight resets), it
+   re-logs-in automatically
+3. Keeps monitoring forever
+
+```bash
+python src/login.py --continuous
+```
+
+Add `--quiet` (or `--no-service-log`) to suppress all output (no console, no
+log files):
+
+```bash
+python src/login.py --continuous --quiet
+```
+
+The Windows service runs the script as `python src/login.py --continuous
+--no-service-log` (fully silent), so the only file it produces is
+`log/service.out.log` (empty) unless the service is stopped.
 
 ### Configuration
 
@@ -250,7 +347,7 @@ pip install -r requirements.txt
 - Test network connection manually
 
 ### Script doesn't run on schedule
-**Windows:** Check Task Scheduler → View Results
+**Windows:** `python install\install_service.py status` → check service is RUNNING; if it isn't, run `python install\install_service.py start`
 **Linux:** `grep CRON /var/log/syslog`
 
 </details>

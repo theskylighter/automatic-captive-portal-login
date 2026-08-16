@@ -68,12 +68,27 @@ windows\autologin.bat
 <details>
 <summary><b>⏰ Setup Automation (Optional)</b></summary>
 
-### Windows - Task Scheduler
-1. Search for "Task Scheduler" → Click "Create Task"
-2. **General:** Name it "Campus Network Login"
-3. **Triggers:** Click "New" → Daily at 12:00 AM
-4. **Actions:** Start program → `windows\autologin.bat`
-5. Click OK, done!
+### Windows - 24/7 Service (default, no Task Scheduler)
+
+The one-click installer (`install.cmd`) asks **"Install the 24/7 auto-login
+Windows service? (Y/n)"** — press **Enter** (default) to install it. The
+service:
+
+- Starts automatically at boot
+- Monitors and re-logs-in continuously (no schedule needed)
+
+If you skipped it, install it later with:
+
+```batch
+python install\install_service.py install
+```
+
+Check status / uninstall:
+
+```batch
+python install\install_service.py status
+python install\install_service.py uninstall
+```
 
 ### Linux/macOS - Crontab
 ```bash

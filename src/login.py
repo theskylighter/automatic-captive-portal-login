@@ -57,22 +57,26 @@ def load_credentials():
     env_file = Path(__file__).parent.parent / '.env'
     if env_file.exists():
         try:
-            with open(env_file, 'r') as f:
+            # utf-8-sig: handles BOM and non-ASCII passwords (Windows default
+            # locale is cp1252 and would fail on UTF-8 characters)
+            with open(env_file, 'r', encoding='utf-8-sig') as f:
                 for line in f:
                     line = line.strip()
                     if line.startswith('CAPTIVE_PORTAL_USERNAME='):
-                        username = line.split('=', 1)[1].strip("'\"")
+                        username = line.split('=', 1)[1].strip().strip("'\"")
                     elif line.startswith('CAPTIVE_PORTAL_PASSWORD='):
-                        password = line.split('=', 1)[1].strip("'\"")
+                        password = line.split('=', 1)[1].strip().strip("'\"")
         except Exception as e:
             logging.warning(f"Could not read .env file: {e}")
     
     if not username or not password:
-        logging.error("❌ Credentials not found!")
-        logging.error("Please set environment variables:")
-        logging.error("  - CAPTIVE_PORTAL_USERNAME")
-        logging.error("  - CAPTIVE_PORTAL_PASSWORD")
-        logging.error("Or run the installer: python install.py")
+        # Write to stderr so it's captured in log/service.err.log even when
+        # the service runs the script with --no-service-log (silent mode).
+        print("❌ Credentials not found!", file=sys.stderr)
+        print("Please set environment variables:", file=sys.stderr)
+        print("  - CAPTIVE_PORTAL_USERNAME", file=sys.stderr)
+        print("  - CAPTIVE_PORTAL_PASSWORD", file=sys.stderr)
+        print("Or run the installer: python install.py", file=sys.stderr)
         sys.exit(1)
     
     return username, password

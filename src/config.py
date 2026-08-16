@@ -43,7 +43,9 @@ class ConfigManager:
             return
         
         try:
-            with open(self.env_file, 'r') as f:
+            # utf-8-sig: handles BOM and non-ASCII passwords (Windows default
+            # locale is cp1252 and would fail on UTF-8 characters)
+            with open(self.env_file, 'r', encoding='utf-8-sig') as f:
                 for line in f:
                     line = line.strip()
                     # Skip empty lines and comments
@@ -140,7 +142,7 @@ class ConfigManager:
             for key, value in self._env_vars.items():
                 content += f'{key}="{value}"\n'
             
-            self.env_file.write_text(content)
+            self.env_file.write_text(content, encoding='utf-8')
             
             # Restrict permissions on Unix
             import platform

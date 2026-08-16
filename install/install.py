@@ -131,8 +131,8 @@ CAPTIVE_PORTAL_PASSWORD="{password}"
 """
     
     try:
-        # Write to .env file
-        env_file.write_text(env_content)
+        # Write to .env file (utf-8 so non-ASCII credentials survive on Windows)
+        env_file.write_text(env_content, encoding="utf-8")
         
         # On Unix, restrict permissions to owner only
         if platform.system() != "Windows":

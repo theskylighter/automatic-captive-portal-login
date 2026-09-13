@@ -36,6 +36,12 @@ if [ -z "$CAPTIVE_PORTAL_USERNAME" ]; then
     exit 1
 fi
 
+# Guard: don't start a second instance if one is already running
+if pgrep -f "python3 .*src/login\.py" > /dev/null 2>&1; then
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - INFO - login.py already running, skipping."
+    exit 0
+fi
+
 # Activate Python environment if needed (uncomment if using venv)
 # source "$PROJECT_ROOT/venv/bin/activate"
 

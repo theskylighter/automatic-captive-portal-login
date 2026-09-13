@@ -54,3 +54,6 @@ last_login_response.html
 # Config files with credentials (rename these)
 config.ini
 .env
+
+intro-video
+log/auto-login.log

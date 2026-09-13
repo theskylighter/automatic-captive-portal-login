@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import requests
 import time
-import subprocess
 import sys
 import socket
 import argparse
@@ -35,34 +34,32 @@ for _stream in (sys.stdout, sys.stderr):
 
 # Get the directory to store response files (cross-platform)
 def get_response_file_path():
-    """Get cross-platform path for storing login responses"""
-    # Store in project root
+    """Get cross-platform path for storing login responses."""
     project_root = Path(__file__).parent.parent
     return project_root / "last_login_response.html"
 
+
 def load_credentials():
-    """Load credentials from environment variables, config manager, or .env file"""
+    """Load credentials from config manager, environment variables, or .env file."""
     global use_config_manager
-    
+
     if use_config_manager:
         try:
             config = load_config()
-            # Strip quotes that might be passed from batch files or env vars
             u, p = config.get_credentials()
             return u.strip('"\''), p.strip('"\'')
         except Exception as e:
             logging.warning(f"Config manager error: {e}")
             use_config_manager = False
-    
-    # Fallback: Try environment variables and .env file directly
-    # Try environment variables first
+
+    # Fallback: environment variables
     username = os.getenv('CAPTIVE_PORTAL_USERNAME')
     password = os.getenv('CAPTIVE_PORTAL_PASSWORD')
-    
+
     if username and password:
         return username.strip('"\''), password.strip('"\'')
-    
-    # Try .env file in project root
+
+    # Fallback: .env file in project root
     env_file = Path(__file__).parent.parent / '.env'
     if env_file.exists():
         try:
@@ -77,7 +74,7 @@ def load_credentials():
                         password = line.split('=', 1)[1].strip().strip("'\"")
         except Exception as e:
             logging.warning(f"Could not read .env file: {e}")
-    
+
     if not username or not password:
         # Write to stderr so it's captured in log/service.err.log even when
         # the service runs the script with --no-service-log (silent mode).
@@ -87,29 +84,36 @@ def load_credentials():
         print("  - CAPTIVE_PORTAL_PASSWORD", file=sys.stderr)
         print("Or run the installer: python install.py", file=sys.stderr)
         sys.exit(1)
-    
+
     return username, password
 
-# Load credentials
-USERNAME, PASSWORD = load_credentials()
 
-# Captive portal login URL
-LOGIN_URL = "http://172.16.1.3:8002/index.php?zone=lan"
+def build_request_params(username, password):
+    """Build login URL, headers, and payload from config if available."""
+    login_url = "http://172.16.1.3:8002/index.php?zone=lan"
+    redirect_url = "https://www.mnit.ac.in"
 
-# Headers (captured from your request)
-HEADERS = {
-    "Host": "172.16.1.3:8002",
-    "Cache-Control": "max-age=0",
-    "Accept-Language": "en-US,en;q=0.9",
-    "Origin": "http://172.16.1.3:8002",
-    "Content-Type": "application/x-www-form-urlencoded",
-    "Upgrade-Insecure-Requests": "1",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-    "Referer": "http://172.16.1.3:8002/index.php?zone=lan&redirurl=http%3A%2F%2Fedge-http.microsoft.com%2Fcaptiveportal%2Fgenerate_204",
-    "Accept-Encoding": "gzip, deflate, br",
-    "Connection": "keep-alive"
-}
+    if use_config_manager:
+        try:
+            config = load_config()
+            login_url = config.get_login_url()
+            redirect_url = config.get_redirect_url()
+        except Exception:
+            pass
+
+    headers = {
+        "Host": "172.16.1.3:8002",
+        "Cache-Control": "max-age=0",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Origin": "http://172.16.1.3:8002",
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Upgrade-Insecure-Requests": "1",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+        "Referer": "http://172.16.1.3:8002/index.php?zone=lan&redirurl=http%3A%2F%2Fedge-http.microsoft.com%2Fcaptiveportal%2Fgenerate_204",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Connection": "keep-alive"
+    }
 
 # Form data (captured from your request)
 PAYLOAD = {
@@ -126,46 +130,45 @@ PAYLOAD = {
 MONITOR_INTERVAL_SECONDS = 10
 
 def is_network_down():
-    """Check if the network is down by attempting to reach a non-redirecting URL."""
+    """Return True if the internet is not reachable (captive portal or no link)."""
     try:
-        # We use a 204 generator which is standard for connectivity checks
-        # If it's redirected or fails, network is "down" (captive portal active)
-        response = requests.get("http://connectivitycheck.gstatic.com/generate_204", timeout=3, allow_redirects=False)
+        response = requests.get(
+            "http://connectivitycheck.gstatic.com/generate_204",
+            timeout=REQUEST_TIMEOUT,
+            allow_redirects=False,
+        )
         return response.status_code != 204
     except Exception as e:
         logging.debug(f"Connectivity check failed: {e}")
-        return True  # Assume network is down if we can't even make the request
+        return True  # Unreachable → treat as down
 
-def login_to_network():
-    """Send a login request to the captive portal."""
+
+def login_to_network(login_url, headers, payload):
+    """POST credentials to the captive portal. Returns True only if internet is confirmed up."""
     try:
-        response = requests.post(LOGIN_URL, headers=HEADERS, data=PAYLOAD)
+        response = requests.post(login_url, headers=headers, data=payload, timeout=REQUEST_TIMEOUT)
         if response.status_code == 200:
-            # Save response to find logout info (cross-platform path)
-            response_file = get_response_file_path()
+            # Save response for debugging (captive portals return 200 even on wrong password)
             try:
-                with open(response_file, "w", encoding="utf-8", errors="replace") as f:
+                with open(get_response_file_path(), "w", encoding="utf-8", errors="replace") as f:
                     f.write(response.text)
             except Exception as file_error:
                 logging.warning(f"⚠️ Could not save response file: {file_error}")
-            
-            # VERIFY LOGIN SUCCESS:
-            # Captive portals often return 200 OK even if the password is wrong.
-            # We must check if the internet is actually working now.
+
+            # Verify the login actually worked — don't trust the 200 OK alone
             logging.info("⏳ Verifying internet connectivity...")
-            time.sleep(2) # Give the network a moment to authorize
-            
+            time.sleep(2)  # Give the network a moment to authorise
+
             if not is_network_down():
-                logging.info("✅ Login verified! Internet is active. Exiting script.")
+                logging.info("✅ Login verified! Internet is active.")
                 return True
             else:
-                logging.warning("⚠️ Portal returned 200 OK, but internet is still down.")
-                logging.warning("   (Possible wrong password or portal error)")
-                # Log the first 500 chars of response to help debug
+                logging.warning("⚠️ Portal returned 200 OK but internet is still down.")
+                logging.warning("   (Wrong password, or portal error)")
                 logging.info(f"   Portal response snippet: {response.text[:500]}")
                 return False
         else:
-            logging.warning(f"⚠️ Login failed with status code: {response.status_code}")
+            logging.warning(f"⚠️ Login returned unexpected status: {response.status_code}")
     except Exception as e:
         logging.error(f"❌ Error while sending login request: {e}")
     
@@ -243,6 +246,15 @@ def main():
                 logging.error("❌ Login attempt failed. Retrying in 5 seconds...")
                 time.sleep(5)
             last_status_was_down = True
+
+            if login_to_network(login_url, headers, payload):
+                logging.info("✅ Logged in successfully. Resuming monitoring...")
+                last_status_was_down = False
+                # Brief pause to let the session stabilise before re-checking
+                time.sleep(5)
+            else:
+                logging.error(f"❌ Login failed. Retrying in {RETRY_INTERVAL}s...")
+                time.sleep(RETRY_INTERVAL)
         else:
             if last_status_was_down:
                 logging.info("✅ Network restored.")

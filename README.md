@@ -38,20 +38,22 @@ That's it! The installer will:
 ```
 automatic-captive-portal-login/
 ├── install.sh                   # One-command bootstrap (Linux/macOS)
-├── install.ps1                  # One-command bootstrap (Windows)
-├── install.cmd                  # Legacy batch installer (Windows)
+├── install.ps1                  # One-command bootstrap (Windows PowerShell)
+├── install.cmd                  # One-command bootstrap (Windows CMD)
 │
 ├── src/
-│   ├── login.py                 # Core login script (--continuous for 24/7)
+│   ├── login.py                 # Core login script (24/7 continuous mode by default)
 │   ├── service.py               # Windows service wrapper (24/7 autostart)
 │   └── config.py                # Configuration manager
 ├── windows/
 │   └── autologin.bat            # Windows launcher
 ├── linux/
-│   └── login.sh                 # Linux/macOS launcher
+│   ├── login.sh                 # Linux/macOS launcher
+│   └── service.sh               # systemd user service manager (install/status/logs/uninstall)
 ├── install/
 │   ├── install.py               # Universal Python installer
 │   └── install_service.py       # Windows service install/manage/uninstall
+├── log/                         # Auto-generated logs directory
 ├── requirements.txt             # Python dependencies
 └── README.md                    # Documentation
 ```
@@ -105,7 +107,7 @@ The installer will automatically:
 
 **Running the script:**
 
-By default, the script runs in **24/7 continuous mode**, constantly monitoring your network and re-logging in automatically whenever the captive portal drops your session.
+By default, the script runs in **24/7 continuous mode**, constantly monitoring your network with fast non-blocking connectivity probes and re-logging in automatically whenever the captive portal drops your session.
 
 **Windows:** 
 ```cmd
@@ -117,7 +119,7 @@ windows\autologin.bat
 ./linux/login.sh
 ```
 
-**Manual / One-Shot Mode (Check once, log in if down, and exit):**
+**Manual / One-Shot Mode (retry until login succeeds or 15-minute timeout, then exit):**
 ```bash
 # Linux/macOS
 ./linux/login.sh --once
@@ -191,9 +193,21 @@ To manage it manually at any time:
 
 ### macOS - 24/7 launchd Agent
 
-Configured during setup via `~/Library/LaunchAgents/com.captiveportal.autologin.plist`.
+The installer does not yet configure launchd automatically on macOS. For now, run the script manually or set up a launchd plist yourself:
 
 ```bash
+# Run manually (stays resident, monitors 24/7)
+./linux/login.sh
+
+# Or run once and exit
+./linux/login.sh --once
+```
+
+To wire it up as a launchd agent manually, create `~/Library/LaunchAgents/com.captiveportal.autologin.plist` and load it:
+
+```bash
+launchctl load ~/Library/LaunchAgents/com.captiveportal.autologin.plist
+
 # Check status
 launchctl list | grep captiveportal
 
@@ -288,7 +302,7 @@ python3 src/login.py
 
 ### Manual / One-Shot Mode (`--once`)
 
-If you prefer the script to check connectivity, log in once if down, and exit immediately:
+If you prefer the script to keep retrying until login succeeds (or give up after 15 minutes) and then exit:
 
 ```bash
 python3 src/login.py --once
@@ -303,9 +317,11 @@ python3 src/login.py --quiet
 ### Configuration
 
 All settings are in `src/login.py`:
-- `LOGIN_URL` - Captive portal URL
-- `TIMEOUT_SECONDS` - Max wait time (default: 900 = 15 min)
-- `HEADERS` - HTTP headers for request
+- `LOGIN_URL` - Captive portal URL (inside `build_request_params()`)
+- `PROBE_TIMEOUT` - Timeout for connectivity check probes (default: 2s)
+- `REQUEST_TIMEOUT` - Timeout for login POST requests (default: 5s)
+- `MONITOR_INTERVAL_SECONDS` - How often to poll in continuous mode (default: 10s)
+- `RETRY_INTERVAL` - Seconds between retry attempts after a failed login (default: 5s)
 - Credentials loaded from `.env` or environment variables
 
 </details>
@@ -316,7 +332,7 @@ All settings are in `src/login.py`:
 <summary><b>🐛 Troubleshooting</b></summary>
 
 ### Credentials not configured
-**Error:** `❌ Error: Credentials not configured!`
+**Error:** `❌ Credentials not found!`
 
 **Fix:**
 ```bash
@@ -344,7 +360,7 @@ pip install -r requirements.txt
 
 ### Script doesn't run on schedule
 **Windows:** `python install\install_service.py status` → check service is RUNNING; if it isn't, run `python install\install_service.py start`
-**Linux:** `grep CRON /var/log/syslog`
+**Linux:** `./linux/service.sh status` → check systemd user service status
 
 </details>
 
@@ -358,9 +374,10 @@ A: Just delete the project folder. The script isn't installed system-wide.
 
 **Q: Can I modify the code?**
 A: Yes! It's open source. Edit:
-- `Login URL` → change `LOGIN_URL` variable
+- `Login URL` → change `login_url` inside `build_request_params()` in `src/login.py`
 - `Credentials behavior` → edit `login_to_network()` function
-- `Timeout` → change `TIMEOUT_SECONDS`
+- `Poll interval` → change `MONITOR_INTERVAL_SECONDS` constant
+- `Probe timeout` → change `PROBE_TIMEOUT` constant
 
 **Q: Will this work with my campus network?**
 A: If your campus uses an HTTP captive portal (like Sophos), yes. Some proprietary portals may need URL adjustment in `src/login.py`.

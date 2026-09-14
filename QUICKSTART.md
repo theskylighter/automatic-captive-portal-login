@@ -51,7 +51,9 @@ install.cmd
 
 ---
 
-## 🎯 Run the Script Manually
+## 🎯 Running the Script
+
+By default, the script runs in **24/7 continuous mode** to keep you logged in around the clock.
 
 **Windows:**
 ```batch
@@ -61,6 +63,13 @@ windows\autologin.bat
 **Linux/macOS:**
 ```bash
 ./linux/login.sh
+```
+
+**Single-Shot / Manual Mode (`--once`):**
+To check status, log in once if down, and exit immediately:
+```bash
+./linux/login.sh --once      # Linux/macOS
+windows\autologin.bat --once  # Windows
 ```
 
 ---

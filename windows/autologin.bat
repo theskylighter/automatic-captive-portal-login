@@ -47,8 +47,8 @@ if not defined CAPTIVE_PORTAL_USERNAME (
     exit /b 1
 )
 
-REM Run the Python script
-%PYTHON_CMD% "src\login.py"
+REM Run the Python script (forwards arguments like --once)
+%PYTHON_CMD% "src\login.py" %*
 
 REM If you want to keep the window open to see output, uncomment the next line:
 REM pause

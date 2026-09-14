@@ -223,10 +223,16 @@ def parse_args():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(description="Captive Portal Auto-Login")
     parser.add_argument(
+        "--once", "--manual", "--one-shot",
+        action="store_true",
+        dest="once",
+        help="Run once in manual mode: check connection, log in if down, and exit immediately.",
+    )
+    parser.add_argument(
         "--continuous",
         action="store_true",
-        help="Run 24/7: keep monitoring and re-login automatically whenever the "
-             "captive portal drops the session (used by the Windows service).",
+        default=True,
+        help="Run 24/7 continuously in the background (Default behavior).",
     )
     parser.add_argument(
         "--quiet",
@@ -239,7 +245,10 @@ def parse_args():
         help="Alias for --quiet: suppress all console and file logging "
              "(used by the Windows service).",
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.once:
+        args.continuous = False
+    return args
 
 
 def setup_file_logging():
@@ -266,7 +275,7 @@ def main():
     username, password = load_credentials()
     login_url, headers, payload = build_request_params(username, password)
 
-    mode_str = "continuous (24/7)" if continuous else "one-shot"
+    mode_str = "continuous (24/7)" if continuous else "manual (one-shot)"
     logging.info(f"🌐 Captive Portal Auto-Login started [{mode_str} mode]")
 
     # Immediate initial connectivity check
@@ -284,6 +293,9 @@ def main():
                 sys.exit(0)
             time.sleep(5)
         else:
+            if not continuous:
+                logging.error("❌ Login failed. Exiting.")
+                sys.exit(1)
             logging.error("❌ Initial login failed. Entering monitoring retry loop...")
 
     # One-shot mode gives up after 15 minutes; continuous mode runs forever.

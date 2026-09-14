@@ -103,16 +103,28 @@ The installer will automatically:
 - ✅ Create a desktop shortcut for manual login (Windows)
 - ✅ All done!
 
-**Test the script:**
+**Running the script:**
+
+By default, the script runs in **24/7 continuous mode**, constantly monitoring your network and re-logging in automatically whenever the captive portal drops your session.
 
 **Windows:** 
-```bash
+```cmd
 windows\autologin.bat
 ```
 
 **Linux/macOS:** 
 ```bash
 ./linux/login.sh
+```
+
+**Manual / One-Shot Mode (Check once, log in if down, and exit):**
+```bash
+# Linux/macOS
+./linux/login.sh --once
+# Windows
+windows\autologin.bat --once
+# Direct Python
+python3 src/login.py --once
 ```
 
 ---
@@ -273,36 +285,32 @@ python install\install_service.py uninstall  REM stop + remove service
 <summary><b>📝 How It Works</b></summary>
 
 The script:
-1. Continuously monitors network connectivity
-2. Detects when a captive portal appears
-3. Automatically sends your login credentials
-4. On success: Script exits ✅ *(one-shot mode — used by `windows\autologin.bat`)*
-5. On failure: Retries every 5 seconds (up to 15 minutes)
+1. Continuously monitors network connectivity (checks every 10s by default)
+2. Detects when a captive portal appears via fast HTTP/IP probing
+3. Automatically posts your login credentials and verifies internet restoration
+4. When connection drops (e.g. idle timeout, IP refresh, or midnight resets), automatically re-authenticates
 
-### 24/7 mode
+### Default 24/7 Continuous Mode
 
-When run with `--continuous` (used by the Windows service), the script never
-times out or exits:
-
-1. Monitors connectivity every 10 seconds
-2. When the captive portal drops the session (e.g. daily midnight resets), it
-   re-logs-in automatically
-3. Keeps monitoring forever
+By default, the script stays resident and keeps you logged in 24/7:
 
 ```bash
-python src/login.py --continuous
+python3 src/login.py
 ```
 
-Add `--quiet` (or `--no-service-log`) to suppress all output (no console, no
-log files):
+### Manual / One-Shot Mode (`--once`)
+
+If you prefer the script to check connectivity, log in once if down, and exit immediately:
 
 ```bash
-python src/login.py --continuous --quiet
+python3 src/login.py --once
 ```
 
-The Windows service runs the script as `python src/login.py --continuous
---no-service-log` (fully silent), so the only file it produces is
-`log/service.out.log` (empty) unless the service is stopped.
+Add `--quiet` (or `--no-service-log`) to suppress all console output:
+
+```bash
+python3 src/login.py --quiet
+```
 
 ### Configuration
 

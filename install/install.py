@@ -171,73 +171,34 @@ def setup_environment_variables():
         print('  export CAPTIVE_PORTAL_USERNAME="your_username"')
         print('  export CAPTIVE_PORTAL_PASSWORD="your_password"')
 
-def setup_cron_on_linux():
-    """Set up cron job on Linux with smart midnight schedule"""
+def setup_service_on_linux():
+    """Set up 24/7 systemd user service on Linux (starts at boot/login)"""
     if platform.system() != "Linux":
         return
 
-    response = input("\nWould you like to set up automatic login around midnight (cron)? (y/n): ").strip().lower()
-    if response not in ["y", "yes"]:
-        print("\nSkipping cron setup. You can add it manually later.")
-        print("Run: crontab -e  and add:")
-        print("  58 23 * * * /bin/bash " + os.path.abspath("linux/login.sh"))
-        return
+    print("\n" + "=" * 60)
+    print("24/7 LINUX BACKGROUND SERVICE (RECOMMENDED)")
+    print("=" * 60)
+    print("\nInstall the auto-login background service that:")
+    print("  - Starts automatically on boot / login")
+    print("  - Monitors the network 24/7 and re-authenticates on drops")
+    print("  - Auto-restarts if it ever crashes")
 
-    project_path = os.path.abspath(".")
-    login_sh = os.path.join(project_path, "linux", "login.sh")
-    log_dir = os.path.join(project_path, "log")
-    log_file = os.path.join(log_dir, "auto-login.log")
+    response = input("\nInstall the 24/7 auto-login systemd user service? (Y/n): ").strip().lower()
+    if response in ["", "y", "yes"]:
+        service_sh = os.path.abspath("linux/service.sh")
+        if os.path.exists(service_sh):
+            try:
+                ret = subprocess.call(["/bin/bash", service_sh, "install"])
+                if ret == 0:
+                    print("\n[OK] 24/7 background service installed and running!")
+                    return
+            except Exception as e:
+                print(f"[WARNING] systemd service setup encountered an error: {e}")
 
-    # Same schedule as macOS: 11:58 PM,
-    cron_entries = [
-        f"58 23 * * * /bin/bash {login_sh} >> {log_file} 2>&1",  # 11:58 PM - script monitors until login succeeds
-    ]
-
-    try:
-        os.makedirs(log_dir, exist_ok=True)
-
-        # Get existing crontab (if any)
-        result = subprocess.run(
-            ["crontab", "-l"],
-            capture_output=True, text=True
-        )
-        existing_crontab = result.stdout if result.returncode == 0 else ""
-
-        # Avoid duplicate entries
-        new_entries = []
-        for entry in cron_entries:
-            if entry not in existing_crontab:
-                new_entries.append(entry)
-
-        if not new_entries:
-            print("[OK] Cron jobs already set up, no duplicates added.")
-            return
-
-        updated_crontab = existing_crontab.rstrip("\n") + "\n" + "\n".join(new_entries) + "\n"
-
-        # Write updated crontab
-        proc = subprocess.Popen(["crontab", "-"], stdin=subprocess.PIPE)
-        proc.communicate(input=updated_crontab.encode())
-
-        if proc.returncode == 0:
-            print("[OK] Cron jobs installed successfully!")
-            print("[OK] Script will run at: 11:58 PM and monitor until login succeeds.")
-            print(f"[OK] Logs will be saved to: {log_file}")
-            print("\nTo view your cron jobs: crontab -l")
-            print("To remove them:          crontab -e")
-        else:
-            raise Exception("crontab command failed")
-
-    except FileNotFoundError:
-        print("[ERROR] 'crontab' command not found on this system.")
-        print("Install it with: sudo apt install cron  (Debian/Ubuntu)")
-        print("             or: sudo dnf install cronie (Fedora/RHEL)")
-    except Exception as e:
-        print(f"\n[ERROR] Could not install cron job: {e}")
-        print("You can add it manually by running: crontab -e")
-        print("And adding these lines:")
-        for entry in cron_entries:
-            print(f"  {entry}")
+    # Fallback to crontab @reboot if systemd was skipped or unavailable
+    print("\nSkipping systemd service. You can set it up anytime with:")
+    print("  ./linux/service.sh install")
 
 
 def setup_windows_service():
@@ -310,34 +271,28 @@ $Shortcut.Save()
 
 
 def setup_launchd_on_macos():
-    """Set up launchd agent on macOS with confirmation"""
+    """Set up 24/7 launchd agent on macOS (starts at boot/login)"""
     if platform.system() != "Darwin":
         return
 
-    response = input("\nWould you like to set up automatic login around midnight (launchd)? (y/n): ").strip().lower()
-    if response not in ["y", "yes"]:
-        print("\nSkipping launchd setup. You can do it later manually.")
+    print("\n" + "=" * 60)
+    print("24/7 MACOS BACKGROUND SERVICE (RECOMMENDED)")
+    print("=" * 60)
+    print("\nInstall the auto-login launchd agent that:")
+    print("  - Starts automatically at boot / login")
+    print("  - Keeps monitoring 24/7 and re-authenticates on drops")
+    print("  - Auto-restarts if it ever crashes")
+
+    response = input("\nInstall the 24/7 auto-login launchd agent? (Y/n): ").strip().lower()
+    if response not in ["", "y", "yes"]:
+        print("\nSkipping launchd setup. You can set it up manually later.")
         return
 
     project_path = os.path.abspath(".")
     login_sh = os.path.join(project_path, "linux", "login.sh")
     launch_agents_dir = os.path.expanduser("~/Library/LaunchAgents")
     plist_path = os.path.join(launch_agents_dir, "com.captiveportal.autologin.plist")
-
-    # Run at 11:58 PM, 
-    schedule_entries = [
-        (23, 58),  # 11:58 PM - script monitors until login succeeds
-    ]
-
-    calendar_intervals = ""
-    for hour, minute in schedule_entries:
-        calendar_intervals += f"""        <dict>
-            <key>Hour</key>
-            <integer>{hour}</integer>
-            <key>Minute</key>
-            <integer>{minute}</integer>
-        </dict>
-"""
+    log_dir = os.path.join(project_path, "log")
 
     plist_content = f"""<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -352,31 +307,29 @@ def setup_launchd_on_macos():
     </array>
     <key>RunAtLoad</key>
     <true/>
-    <key>StartCalendarInterval</key>
-    <array>
-{calendar_intervals}    </array>
+    <key>KeepAlive</key>
+    <true/>
     <key>StandardOutPath</key>
-    <string>{project_path}/log/auto-login.log</string>
+    <string>{log_dir}/service.out.log</string>
     <key>StandardErrorPath</key>
-    <string>{project_path}/log/auto-login-error.log</string>
+    <string>{log_dir}/service.err.log</string>
 </dict>
 </plist>
 """
 
     try:
         os.makedirs(launch_agents_dir, exist_ok=True)
-        os.makedirs(os.path.join(project_path, "log"), exist_ok=True)
-        with open(plist_path, "w") as f:
+        os.makedirs(log_dir, exist_ok=True)
+        with open(plist_path, "w", encoding="utf-8") as f:
             f.write(plist_content)
+        subprocess.call(["launchctl", "unload", plist_path], stderr=subprocess.DEVNULL)
         subprocess.call(["launchctl", "load", plist_path])
-        print(f"[OK] launchd agent installed and loaded.")
-        print("[OK] Script will run at: 11:58 PM, 12:00, 12:01, 12:02, 12:03, 12:05 AM")
-        print("[OK] Also runs once on startup/login (in case Mac was asleep at midnight).")
-        print("\nTo disable later, run:")
+        print(f"[OK] 24/7 launchd agent installed and running!")
+        print("\nTo stop / remove later:")
         print(f"  launchctl unload {plist_path}")
+        print(f"  rm -f {plist_path}")
     except Exception as e:
         print(f"\n[ERROR] Could not install launchd agent: {e}")
-        print("You can set it up manually later.")
 
 
 def print_next_steps():
@@ -384,29 +337,36 @@ def print_next_steps():
     print("\n" + "=" * 50)
     print("[OK] Installation Complete!")
     print("=" * 50)
-    print("\nYou can now use the following commands to run the auto-login:\n")
+    print("\nYou can now use the following commands:\n")
     
     if platform.system() == "Windows":
         print("Windows:")
-        print("  windows\\autologin.bat")
-    else:
-        print("Linux/macOS:")
-        print("  bash linux/login.sh")
-    
-    print("\nFor automation:")
-    if platform.system() == "Windows":
-        print("  - 24/7 Windows service (installed above): auto-login at boot")
-        print("  - Check status with:  python install\\install_service.py status")
-        print("  - Remove later with:  python install\\install_service.py uninstall")
+        print("  windows\\autologin.bat           # Run 24/7 in foreground")
+        print("  windows\\autologin.bat --once    # Run once manually")
+        print("\n24/7 Background Service:")
+        print("  python install\\install_service.py status")
+        print("  python install\\install_service.py uninstall")
     elif platform.system() == "Darwin":
-        print("  - launchd agent (already set up if you chose yes above)")
+        print("macOS:")
+        print("  ./linux/login.sh               # Run 24/7 in foreground")
+        print("  ./linux/login.sh --once        # Run once manually")
+        print("\n24/7 Background Service (launchd):")
+        print("  launchctl list | grep captiveportal")
     else:
-        print("  - Use crontab (see instructions above)")
+        print("Linux:")
+        print("  ./linux/login.sh               # Run 24/7 in foreground")
+        print("  ./linux/login.sh --once        # Run once manually")
+        print("\n24/7 Background Service (systemd):")
+        print("  ./linux/service.sh status      # Check background service status")
+        print("  ./linux/service.sh logs        # View live service logs")
+        print("  ./linux/service.sh restart     # Restart service")
+        print("  ./linux/service.sh uninstall   # Remove service")
     
     print("\nTo update credentials later:")
     print("  - Edit .env file, or")
     print("  - Set environment variables: CAPTIVE_PORTAL_USERNAME and CAPTIVE_PORTAL_PASSWORD")
     print("\n" + "=" * 50)
+
 
 def main():
     print_header()
@@ -437,11 +397,12 @@ def main():
         setup_windows_service()
         create_desktop_shortcut_on_windows()
     elif platform.system() == "Linux":
-        setup_cron_on_linux()
+        setup_service_on_linux()
     elif platform.system() == "Darwin":
         setup_launchd_on_macos()
     
     print_next_steps()
+
 
 if __name__ == "__main__":
     main()

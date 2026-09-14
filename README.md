@@ -172,55 +172,43 @@ The `.env` file is protected by:
 ---
 
 <details>
-<summary><b>⏰ Set Up Automation (12:00 AM Daily)</b></summary>
+<summary><b>⏰ Set Up 24/7 Background Service (Auto-Start at Boot)</b></summary>
 
-### Windows - 24/7 Service (no Task Scheduler)
+### Linux - 24/7 systemd User Service
 
-> 💡 The installer handles this automatically — it will ask during setup and,
-> by default (press **Enter**), installs the **24/7 Windows service** which
-> auto-logs-in at boot and monitors around the clock. No Task Scheduler needed.
+The installer configures this automatically. It starts at boot / login, monitors 24/7, and automatically re-authenticates whenever disconnected.
 
-If you skipped it during install, or want the manual alternative:
-
-- **(Recommended)** Install the service:
-  ```cmd
-  python install\install_service.py install
-  ```
-  (See the [🚀 24/7 Windows Service](#-247-windows-service-recommended--no-task-scheduler)
-  section below for full details.)
-
-- **(Legacy, not recommended)** Manual Task Scheduler:
-  1. Press `Win + S` → search "Task Scheduler" → Open
-  2. Right-click → **Create Task**
-  3. **General tab:**
-     - Name: "Campus Network Auto-Login"
-     - ☑️ "Run whether user is logged on or not"
-  4. **Triggers tab:**
-     - Click **New** → Daily → 12:00 AM → OK
-  5. **Actions tab:**
-     - Click **New** → Action: "Start a program"
-     - Program/script: `windows\autologin.bat`
-     - OK
-  6. Enter password, done!
-
-### Linux - Crontab
-
-> 💡 The installer handles this automatically — it will ask during setup and register the cron job at **11:58 PM** daily (no manual steps needed).
-
-If you skipped it or want to add it manually:
+To manage it manually at any time:
 
 ```bash
-crontab -e
+./linux/service.sh install      # Install and start the 24/7 service
+./linux/service.sh status       # Check service status
+./linux/service.sh logs         # View live journal logs
+./linux/service.sh restart      # Restart service
+./linux/service.sh stop         # Stop service
+./linux/service.sh uninstall    # Remove service
 ```
 
-Add this line:
+### macOS - 24/7 launchd Agent
+
+Configured during setup via `~/Library/LaunchAgents/com.captiveportal.autologin.plist`.
+
 ```bash
-58 23 * * * /bin/bash /path/to/project/linux/login.sh >> /path/to/project/log/auto-login.log 2>&1
+# Check status
+launchctl list | grep captiveportal
+
+# Unload / stop
+launchctl unload ~/Library/LaunchAgents/com.captiveportal.autologin.plist
 ```
 
-Replace `/path/to/project` with your actual project path.
+### Windows - 24/7 Windows Service
 
-To view or remove the job: `crontab -l` / `crontab -e`
+```cmd
+python install\install_service.py install    REM Install and start service
+python install\install_service.py status     REM Check status
+python install\install_service.py restart    REM Restart service
+python install\install_service.py uninstall  REM Remove service
+```
 
 </details>
 

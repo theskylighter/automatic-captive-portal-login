@@ -45,6 +45,6 @@ fi
 # Activate Python environment if needed (uncomment if using venv)
 # source "$PROJECT_ROOT/venv/bin/activate"
 
-# Run the Python script
-python3 "$PROJECT_ROOT/src/login.py"
+# Run the Python script (forward any arguments like --continuous)
+python3 "$PROJECT_ROOT/src/login.py" "$@"
 

@@ -88,6 +88,16 @@ def load_credentials():
     return username, password
 
 
+# Configuration constants
+PROBE_TIMEOUT = 2.0  # Fast timeout for connectivity check probes (seconds)
+REQUEST_TIMEOUT = 5  # Timeout for captive portal login POST requests (seconds)
+RETRY_INTERVAL = 5   # Interval between retry attempts on failure (seconds)
+# Connectivity check interval (seconds) while the network is up.
+# One-shot mode keeps the historical 1s cadence; continuous (24/7) mode
+# checks less often to avoid hammering the connectivity server.
+MONITOR_INTERVAL_SECONDS = 10
+
+
 def build_request_params(username, password):
     """Build login URL, headers, and payload from config if available."""
     login_url = "http://172.16.1.3:8002/index.php?zone=lan"
@@ -115,32 +125,64 @@ def build_request_params(username, password):
         "Connection": "keep-alive"
     }
 
-# Form data (captured from your request)
-PAYLOAD = {
-    "redirurl": "https://www.mnit.ac.in",
-    "zone": "lan",
-    "auth_user": USERNAME,
-    "auth_pass": PASSWORD,
-    "accept": "LOGIN"
-}
+    # Form data
+    payload = {
+        "redirurl": redirect_url,
+        "zone": "lan",
+        "auth_user": username,
+        "auth_pass": password,
+        "accept": "LOGIN"
+    }
 
-# Connectivity check interval (seconds) while the network is up.
-# One-shot mode keeps the historical 1s cadence; continuous (24/7) mode
-# checks less often to avoid hammering the connectivity server.
-MONITOR_INTERVAL_SECONDS = 10
+    return login_url, headers, payload
+
 
 def is_network_down():
-    """Return True if the internet is not reachable (captive portal or no link)."""
+    """
+    Fast captive portal and internet connectivity check.
+    Returns True if captive portal is active or network is unreachable.
+    Returns False only when genuine internet access is verified.
+    """
+    # 1. Primary HTTP probe (Captive portals intercept Port 80 immediately in ~10ms)
     try:
-        response = requests.get(
+        res = requests.get(
             "http://connectivitycheck.gstatic.com/generate_204",
-            timeout=REQUEST_TIMEOUT,
+            timeout=PROBE_TIMEOUT,
             allow_redirects=False,
         )
-        return response.status_code != 204
-    except Exception as e:
-        logging.debug(f"Connectivity check failed: {e}")
-        return True  # Unreachable → treat as down
+        # Genuine internet returns 204 No Content with empty body
+        if res.status_code == 204 and len(res.content.strip()) == 0:
+            return False
+        # Intercepted by portal (redirects 302/307 or returns 200 OK with HTML splash/login page)
+        if res.status_code in (301, 302, 303, 307, 308) or res.status_code == 200:
+            return True
+    except Exception:
+        pass
+
+    # 2. Secondary HTTP probe (Cloudflare 204)
+    try:
+        res = requests.get(
+            "http://cp.cloudflare.com/generate_204",
+            timeout=PROBE_TIMEOUT,
+            allow_redirects=False,
+        )
+        if res.status_code == 204 and len(res.content.strip()) == 0:
+            return False
+        if res.status_code in (301, 302, 303, 307, 308) or res.status_code == 200:
+            return True
+    except Exception:
+        pass
+
+    # 3. Direct IP probe (http://1.1.1.1 - avoids DNS delays if DNS is unreachable)
+    try:
+        res = requests.get("http://1.1.1.1", timeout=PROBE_TIMEOUT, allow_redirects=False)
+        if res.status_code in (200, 301, 302) and "172.16.1.3" not in res.text and "auth_user" not in res.text:
+            return False
+    except Exception:
+        pass
+
+    # All probes failed / timed out -> treat as down
+    return True
 
 
 def login_to_network(login_url, headers, payload):
@@ -156,23 +198,26 @@ def login_to_network(login_url, headers, payload):
                 logging.warning(f"⚠️ Could not save response file: {file_error}")
 
             # Verify the login actually worked — don't trust the 200 OK alone
+            # Give the gateway firewall a moment to apply routing rules
             logging.info("⏳ Verifying internet connectivity...")
-            time.sleep(2)  # Give the network a moment to authorise
+            for attempt in range(1, 4):
+                time.sleep(1.5)
+                if not is_network_down():
+                    logging.info("✅ Login verified! Internet is active.")
+                    return True
+                logging.debug(f"Verification attempt {attempt}/3: internet not active yet.")
 
-            if not is_network_down():
-                logging.info("✅ Login verified! Internet is active.")
-                return True
-            else:
-                logging.warning("⚠️ Portal returned 200 OK but internet is still down.")
-                logging.warning("   (Wrong password, or portal error)")
-                logging.info(f"   Portal response snippet: {response.text[:500]}")
-                return False
+            logging.warning("⚠️ Portal returned 200 OK but internet is still down.")
+            logging.warning("   (Wrong password, or portal error)")
+            logging.info(f"   Portal response snippet: {response.text[:500]}")
+            return False
         else:
             logging.warning(f"⚠️ Login returned unexpected status: {response.status_code}")
     except Exception as e:
         logging.error(f"❌ Error while sending login request: {e}")
     
     return False  # Login failed
+
 
 def parse_args():
     """Parse command line arguments."""
@@ -217,7 +262,29 @@ def main():
     elif continuous:
         setup_file_logging()
 
-    logging.info("🌐 Monitoring network status..." + (" [continuous mode]" if continuous else ""))
+    # Load credentials and construct request parameters
+    username, password = load_credentials()
+    login_url, headers, payload = build_request_params(username, password)
+
+    mode_str = "continuous (24/7)" if continuous else "one-shot"
+    logging.info(f"🌐 Captive Portal Auto-Login started [{mode_str} mode]")
+
+    # Immediate initial connectivity check
+    if not is_network_down():
+        if not continuous:
+            logging.info("✅ Internet is already active and working. Nothing to do!")
+            sys.exit(0)
+        else:
+            logging.info(f"✅ Internet is active. Monitoring every {MONITOR_INTERVAL_SECONDS}s...")
+    else:
+        logging.warning("🚫 Captive portal detected / network down. Attempting login...")
+        if login_to_network(login_url, headers, payload):
+            logging.info("✅ Initial login successful.")
+            if not continuous:
+                sys.exit(0)
+            time.sleep(5)
+        else:
+            logging.error("❌ Initial login failed. Entering monitoring retry loop...")
 
     # One-shot mode gives up after 15 minutes; continuous mode runs forever.
     TIMEOUT_SECONDS = None if continuous else 15 * 60  # 900 seconds
@@ -238,28 +305,24 @@ def main():
                 remaining_secs = int(TIMEOUT_SECONDS - elapsed_time)
                 remaining = f" ({remaining_secs // 60}m {remaining_secs % 60}s remaining)"
             logging.warning(f"🚫 Network down. Trying to log in...{remaining}")
-            if login_to_network():
-                logging.info("✅ Login successful.")
-                if not continuous:
-                    sys.exit()  # Exit script once login is successful
-            else:
-                logging.error("❌ Login attempt failed. Retrying in 5 seconds...")
-                time.sleep(5)
-            last_status_was_down = True
 
             if login_to_network(login_url, headers, payload):
-                logging.info("✅ Logged in successfully. Resuming monitoring...")
+                logging.info("✅ Login successful.")
+                if not continuous:
+                    sys.exit(0)  # Exit script once login is successful
                 last_status_was_down = False
                 # Brief pause to let the session stabilise before re-checking
                 time.sleep(5)
             else:
-                logging.error(f"❌ Login failed. Retrying in {RETRY_INTERVAL}s...")
+                logging.error(f"❌ Login attempt failed. Retrying in {RETRY_INTERVAL}s...")
+                last_status_was_down = True
                 time.sleep(RETRY_INTERVAL)
         else:
             if last_status_was_down:
                 logging.info("✅ Network restored.")
                 last_status_was_down = False
             time.sleep(MONITOR_INTERVAL_SECONDS if continuous else 1)
+
 
 if __name__ == "__main__":
     main()
